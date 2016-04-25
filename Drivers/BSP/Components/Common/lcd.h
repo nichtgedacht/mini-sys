@@ -71,7 +71,7 @@ typedef struct
   uint16_t (*ReadID)(void);  // not implemented
   void     (*DisplayOn)(void);
   void     (*DisplayOff)(void);
-  void     (*SetCursor)(uint16_t, uint16_t);
+  void     (*SetCursor)(uint16_t, uint8_t);
   void     (*WritePixel)(uint16_t, uint16_t, uint16_t);
   uint16_t (*ReadPixel)(uint16_t, uint16_t);  // not implemented
   

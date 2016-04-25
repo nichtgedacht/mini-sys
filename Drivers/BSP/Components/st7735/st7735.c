@@ -293,7 +293,7 @@ void st7735_DisplayOff(void)
   * @param  Ypos: specifies the Y position.
   * @retval None
   */
-void st7735_SetCursor(uint16_t Xpos, uint16_t Ypos)
+void st7735_SetCursor(uint16_t Xpos, uint8_t Ypos)
 {
   uint8_t data = 0;
   LCD_IO_WriteReg(LCD_REG_42);

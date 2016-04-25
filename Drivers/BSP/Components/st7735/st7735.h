@@ -171,7 +171,7 @@ uint16_t st7735_ReadID(void);
 
 void     st7735_DisplayOn(void);
 void     st7735_DisplayOff(void);
-void     st7735_SetCursor(uint16_t Xpos, uint16_t Ypos);
+void     st7735_SetCursor(uint16_t Xpos, uint8_t Ypos);
 void     st7735_WritePixel(uint16_t Xpos, uint16_t Ypos, uint16_t RGBCode);
 void     st7735_WriteReg(uint8_t LCDReg, uint8_t LCDRegValue);
 uint8_t  st7735_ReadReg(uint8_t LCDReg);
