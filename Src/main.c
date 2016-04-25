@@ -277,7 +277,7 @@ int main(void)
       {
 
           red = 0;
-          sprintf(buf, "U1: %3.3f V", volt1);
+          sprintf(buf, "V1: %3.3f V", volt1);
 
           //color = ( ( sizeof(uint16_t) * rand() + 1 ) / sizeof(int));
           color = LCD_COLOR_YELLOW;
@@ -323,7 +323,7 @@ int main(void)
       else
       {
           red = 1;
-          sprintf(buf, "U2: %3.3f V", volt2);
+          sprintf(buf, "V2: %3.3f V", volt2);
 
           //color =  ( ( sizeof(uint16_t) * rand() + 1 ) / sizeof(int));
           color = LCD_COLOR_WHITE;
