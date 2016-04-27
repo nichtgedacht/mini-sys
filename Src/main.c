@@ -84,7 +84,7 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
 
-static uint8_t TFT_DisplayImages(uint8_t x, uint16_t y, uint32_t bmpcounter);
+static uint8_t TFT_DisplayImages(uint8_t x, uint16_t y, const char* fname);
 
 /* USER CODE END PFP */
 
@@ -292,7 +292,7 @@ int main(void)
               res = BSP_SD_Init();
               if ( res == BSP_SD_OK )
               {
-                  TFT_DisplayImages(0, 0, 2);
+                  TFT_DisplayImages(0, 0, "PICT1.BMP");
                   /*
                   if(f_open(&bmpfile, "testfile", FA_WRITE | FA_CREATE_NEW) == FR_OK)
                   {
@@ -312,7 +312,7 @@ int main(void)
         	  res = BSP_SD_Init();
         	  if ( res == BSP_SD_OK )
         	  {
-        	      TFT_DisplayImages(0, 0, 3);
+        	      TFT_DisplayImages(0, 0, "PICT2.BMP");
               }
           }
 
@@ -338,7 +338,7 @@ int main(void)
         	  res = BSP_SD_Init();
         	  if ( res == BSP_SD_OK )
         	  {
-        	      TFT_DisplayImages(BSP_LCD_GetXSize()-50, BSP_LCD_GetYSize()-50, 4);
+        	      TFT_DisplayImages(BSP_LCD_GetXSize()-50, BSP_LCD_GetYSize()-50, "PICT1-P.BMP");
               }
           }
           else
@@ -346,7 +346,7 @@ int main(void)
         	  res = BSP_SD_Init();
         	  if ( res == BSP_SD_OK )
         	  {
-        	      TFT_DisplayImages(BSP_LCD_GetXSize()-50, BSP_LCD_GetYSize()-50, 5);
+        	      TFT_DisplayImages(BSP_LCD_GetXSize()-50, BSP_LCD_GetYSize()-50, "PICT2-P.BMP");
               }
           }
       }
@@ -398,7 +398,7 @@ void SystemClock_Config(void)
 
 /* USER CODE BEGIN 4 */
 
-static uint8_t TFT_DisplayImages(uint8_t x, uint16_t y, uint32_t bmpcounter)
+static uint8_t TFT_DisplayImages(uint8_t x, uint16_t y, const char* fname)
 {
   uint32_t bmplen = 0x00;
   uint32_t nfiles=0x00;
@@ -429,7 +429,9 @@ static uint8_t TFT_DisplayImages(uint8_t x, uint16_t y, uint32_t bmpcounter)
 
   //sprintf((char*)str, "%-11.11s", pDirectoryFiles[bmpcounter -1]);
 
-  sprintf((char*)str, "%s", pDirectoryFiles[bmpcounter -1]);
+  // sprintf((char*)str, "%s", pDirectoryFiles[bmpcounter -1]);
+
+  sprintf((char*)str, "%s", fname);
 
   checkstatus = Storage_CheckBitmapFile((const char*)str, &bmplen);
 

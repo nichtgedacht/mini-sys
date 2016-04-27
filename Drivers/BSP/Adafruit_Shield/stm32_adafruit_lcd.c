@@ -156,7 +156,6 @@ uint8_t BSP_LCD_Init(void)
   
   /* Clear the LCD screen */
   lcd_drv->DrawFillRect(DrawProp.TextColor, 0, 0, BSP_LCD_GetXSize(), BSP_LCD_GetYSize());
-  //BSP_LCD_Clear(LCD_COLOR_BLACK);
   
   /* Initialize the font */
   BSP_LCD_SetFont(&LCD_DEFAULT_FONT);
@@ -263,17 +262,10 @@ uint8_t BSP_LCD_GetFontHeight(void)
   */
 void BSP_LCD_Clear(uint16_t Color)
 { 
-//  uint32_t color_backup = DrawProp.TextColor;
-
-//  DrawProp.TextColor = Color;
-  
   uint32_t x = BSP_LCD_GetXSize();
   uint32_t y = BSP_LCD_GetYSize();
 
   lcd_drv->DrawFillRect(Color, 0, 0, x, y);
-
- // DrawProp.TextColor = color_backup;
-
 }
 
 /**
@@ -291,13 +283,8 @@ void BSP_LCD_ClearStringLine(uint16_t Line)
  // DrawProp.TextColor = DrawProp.BackColor;;
     
   /* Draw a rectangle with background color */
-  
-  //BSP_LCD_FillRect(0, (Line * DrawProp.pFont->Height), BSP_LCD_GetXSize(), DrawProp.pFont->Height);
-
   lcd_drv->DrawFillRect(DrawProp.TextColor, 0, (Line * DrawProp.pFont->Height), lcd_drv->GetLcdPixelWidth(), DrawProp.pFont->Height);
 
- // DrawProp.TextColor = color_backup;
- // BSP_LCD_SetTextColor(DrawProp.TextColor);
 }
 
 /**
@@ -655,7 +642,6 @@ void BSP_LCD_DrawBitmap(uint8_t Xpos, uint8_t Ypos, uint8_t *pBmp)
 
   /* Remap Ypos, st7735 works with inverted X in case of bitmap */
   /* X = 0, cursor is on Top corner */
-  //lcd_drv->SetDisplayWindow(Xpos, lcd_drv->GetLcdPixelHeight() - Ypos - height, width, height);
 
   Ypos = lcd_drv->GetLcdPixelHeight() - Ypos - height;
 

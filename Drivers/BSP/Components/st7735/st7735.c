@@ -361,31 +361,23 @@ void st7735_SetDisplayWindow(uint8_t Xpos, uint8_t Ypos, uint8_t Width, uint8_t 
   uint8_t data = 0;
   /* Column addr set, 4 args, no delay: XSTART = Xpos, XEND = (Xpos + Width - 1) */
   LCD_IO_WriteReg(LCD_REG_42);
-  //data = (Xpos) >> 8;
   data=0x00;
   LCD_IO_WriteMultipleData(&data, 1);
-  //data = (Xpos) & 0xFF;
   data = Xpos;
   LCD_IO_WriteMultipleData(&data, 1);
-  //data = (Xpos + Width - 1) >> 8;
   data = 0x00;
   LCD_IO_WriteMultipleData(&data, 1);
-  //data = (Xpos + Width - 1) & 0xFF;
   data = Xpos  + Width - 1;
   LCD_IO_WriteMultipleData(&data, 1);
   /* Row addr set, 4 args, no delay: YSTART = Ypos, YEND = (Ypos + Height - 1) */
   LCD_IO_WriteReg(LCD_REG_43);
-  //data = (Ypos) >> 8;
   data = 0x00;
   LCD_IO_WriteMultipleData(&data, 1);
-  //data = (Ypos) & 0xFF;
   data = Ypos;
   LCD_IO_WriteMultipleData(&data, 1);
-  //data = (Ypos + Height - 1) >> 8;
   data = 0x00;
   LCD_IO_WriteMultipleData(&data, 1);
-  //data = (Ypos + Height - 1) & 0xFF;
-  data = Ypos + Height - 1;
+   data = Ypos + Height - 1;
   LCD_IO_WriteMultipleData(&data, 1);
 }
 
@@ -487,10 +479,7 @@ void st7735_DrawBitmap(uint16_t Xpos, uint16_t Ypos, uint8_t *pbmp)
   size = (size - index)/2;
   pbmp += index;
 
-  /* Set GRAM write direction and BGR = 0 */
-  /* Memory access control: MY = 0, MX = 1, MV = 0, ML = 0 */
-  //st7735_WriteReg(LCD_REG_54, 0x40);
-
+  /* Set MADCTL for bitmap */
   switch (ST7735_LCD_Rotation) {
    case 0:
     st7735_WriteReg(LCD_REG_54, (MADCTL_MX | MADCTL_RGB));
@@ -511,11 +500,7 @@ void st7735_DrawBitmap(uint16_t Xpos, uint16_t Ypos, uint8_t *pbmp)
 
   LCD_IO_WriteMultipleData((uint8_t*)pbmp, size*2);
 
-  /* Set GRAM write direction and BGR = 0 */
-  /* Memory access control: MY = 1, MX = 1, MV = 0, ML = 0 */
-  // st7735_WriteReg(LCD_REG_54, (0x80|0x20|0x00));
-  //st7735_WriteReg(LCD_REG_54, 0xC0);
-
+  /* reset MADCTL normal */
   switch (ST7735_LCD_Rotation) {
   	  case 0:
   		  st7735_WriteReg(LCD_REG_54, (MADCTL_MY | MADCTL_MX | MADCTL_RGB));

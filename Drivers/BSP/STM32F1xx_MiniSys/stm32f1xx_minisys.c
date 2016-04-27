@@ -151,9 +151,7 @@ static void SPIx_MspInit(void)
 
   /* Configure SPI SCK */
   gpioinitstruct.Pin        = MINISYS_SPIx_SCK_PIN;
-
-//  gpioinitstruct.Pull   = GPIO_PULLUP;
-
+  //gpioinitstruct.Pull   = GPIO_PULLUP;
   //gpioinitstruct.Mode       = GPIO_MODE_OUTPUT_PP;
   gpioinitstruct.Mode       = GPIO_MODE_AF_PP;
 
@@ -162,14 +160,12 @@ static void SPIx_MspInit(void)
 
   /* Configure SPI MISO and MOSI */ 
   gpioinitstruct.Pin        = MINISYS_SPIx_MOSI_PIN;
-
-//  gpioinitstruct.Pull   = GPIO_PULLUP;
+  //gpioinitstruct.Pull   = GPIO_PULLUP;
 
   HAL_GPIO_Init(MINISYS_SPIx_MISO_MOSI_GPIO_PORT, &gpioinitstruct);
   
   gpioinitstruct.Pin        = MINISYS_SPIx_MISO_PIN;
-
-//  gpioinitstruct.Pull   = GPIO_PULLUP;
+  //gpioinitstruct.Pull   = GPIO_PULLUP;
 
   gpioinitstruct.Mode       = GPIO_MODE_INPUT;
   HAL_GPIO_Init(MINISYS_SPIx_MISO_MOSI_GPIO_PORT, &gpioinitstruct);
@@ -214,29 +210,6 @@ static void SPIx_Init(void)
   }
 }
 
-///**
-//  * @brief  SPI Read 4 bytes from device
-//  * @retval Read data
-//*/
-//static uint32_t SPIx_Read(void)
-//{
-//  HAL_StatusTypeDef status = HAL_OK;
-//  uint32_t readvalue = 0;
-//  uint32_t writevalue = 0xFFFFFFFF;
-//
-//  status = HAL_SPI_TransmitReceive(&hMINISYS_Spi, (uint8_t*) &writevalue, (uint8_t*) &readvalue, 1, SpixTimeout);
-//
-//  /* Check the communication status */
-//  if(status != HAL_OK)
-//  {
-//    /* Execute user timeout callback */
-//    SPIx_Error();
-//  }
-//
-//  return readvalue;
-//}
-
-/* new functions */
 /**
   * @brief  SPI Write a byte to device
   * @param  DataIn: value to be written
@@ -331,17 +304,6 @@ void SD_IO_Init(void)
   }
 }
 
-/**
-  * @brief  Writes a byte on the SD.
-  * @param  Data: byte to send.
-  * @retval None
-  */
-//void SD_IO_WriteByte(uint8_t Data)
-//{
-//  /* Send the byte */
-//  SPIx_Write(Data);
-//}
-
 /* exchanged function from F4 firmaware */
 /**
   * @brief  Writes a byte on the SD.
@@ -384,73 +346,6 @@ void SD_IO_WriteReadData(const uint8_t *DataIn, uint8_t *DataOut, uint16_t DataL
   /* Send the byte */
   SPIx_WriteReadData(DataIn, DataOut, DataLength);
 }
-
-/**
-  * @brief  Sends 5 bytes command to the SD card and get response
-  * @param  Cmd: The user expected command to send to SD card.
-  * @param  Arg: The command argument.
-  * @param  Crc: The CRC.
-  * @param  Response: Expected response from the SD card
-  * @retval HAL_StatusTypeDef HAL Status
-  */
-// now this stuff is in stm32_adafruit.c
-//HAL_StatusTypeDef SD_IO_WriteCmd(uint8_t Cmd, uint32_t Arg, uint8_t Crc, uint8_t Response)
-//{
-//  uint32_t counter = 0x00;
-//  uint8_t frame[6] = {0};
-
-  /* Prepare Frame to send */
-//  frame[0] = (Cmd | 0x40);         /* Construct byte 1 */
-//  frame[1] = (uint8_t)(Arg >> 24); /* Construct byte 2 */
-//  frame[2] = (uint8_t)(Arg >> 16); /* Construct byte 3 */
-//  frame[3] = (uint8_t)(Arg >> 8);  /* Construct byte 4 */
-//  frame[4] = (uint8_t)(Arg);       /* Construct byte 5 */
-//  frame[5] = (Crc);                /* Construct byte 6 */
-
-  /* SD chip select low */
-//  SD_CS_LOW();
-
-  /* Send Frame */
-//  for (counter = 0; counter < 6; counter++)
-//  {
-//    SD_IO_WriteByte(frame[counter]); /* Send the Cmd bytes */
-//  }
-
-//  if(Response != SD_NO_RESPONSE_EXPECTED)
-//  {
-//    return SD_IO_WaitResponse(Response);
-//  }
-
-//  return HAL_OK;
-//}
-
-
-/**
-  * @brief  Waits response from the SD card
-  * @param  Response: Expected response from the SD card
-  * @retval HAL_StatusTypeDef HAL Status
-  */
-//HAL_StatusTypeDef SD_IO_WaitResponse(uint8_t Response)
-//{
-//  uint32_t timeout = 0xFFFF;
-
-  /* Check if response is got or a timeout is happen */
-//  while ((SD_IO_ReadByte() != Response) && timeout)
-//  {
-//    timeout--;
-//  }
-
-//  if (timeout == 0)
-//  {
-    /* After time out */
-//    return HAL_TIMEOUT;
-//  }
-//  else
-//  {
-    /* Right response got */
-//    return HAL_OK;
-//  }
-//  }
 
 /**
   * @brief  Sends dummy byte with CS High
