@@ -42,8 +42,6 @@
 #define ST7735_TFTWIDTH  128
 #define ST7735_TFTHEIGHT 160
 
-//static int16_t _width = ST7735_LCD_PIXEL_WIDTH;   // this could probably be a constant, except it is used in Adafruit_GFX and depends on image rotation
-//static int16_t _height = ST7735_LCD_PIXEL_HEIGHT;
 static uint8_t ST7735_LCD_Rotation=0;
 static uint16_t ST7735_LCD_PIXEL_WIDTH=128;
 static uint16_t ST7735_LCD_PIXEL_HEIGHT=160;

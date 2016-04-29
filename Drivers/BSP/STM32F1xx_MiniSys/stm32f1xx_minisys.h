@@ -80,19 +80,22 @@
   * @{
   */
 /*###################### SPI1 ###################################*/
-#define MINISYS_SPIx                                 SPI2
-#define MINISYS_SPIx_CLK_ENABLE()                    __HAL_RCC_SPI2_CLK_ENABLE()
+// using generated code from CubeMX for spi now
 
-#define MINISYS_SPIx_SCK_GPIO_PORT                   GPIOB
-#define MINISYS_SPIx_SCK_PIN                         GPIO_PIN_13
-#define MINISYS_SPIx_SCK_GPIO_CLK_ENABLE()           __HAL_RCC_GPIOB_CLK_ENABLE()
-#define MINISYS_SPIx_SCK_GPIO_CLK_DISABLE()          __HAL_RCC_GPIOB_CLK_DISABLE()
+//#define MINISYS_SPIx                                 SPI2
+//#define MINISYS_SPIx_CLK_ENABLE()                    __HAL_RCC_SPI2_CLK_ENABLE()
 
-#define MINISYS_SPIx_MISO_MOSI_GPIO_PORT             GPIOB
-#define MINISYS_SPIx_MISO_MOSI_GPIO_CLK_ENABLE()     __HAL_RCC_GPIOB_CLK_ENABLE()
-#define MINISYS_SPIx_MISO_MOSI_GPIO_CLK_DISABLE()    __HAL_RCC_GPIOB_CLK_DISABLE()
-#define MINISYS_SPIx_MISO_PIN                        GPIO_PIN_14
-#define MINISYS_SPIx_MOSI_PIN                        GPIO_PIN_15
+//#define MINISYS_SPIx_SCK_GPIO_PORT                   GPIOB
+//#define MINISYS_SPIx_SCK_PIN                         GPIO_PIN_13
+//#define MINISYS_SPIx_SCK_GPIO_CLK_ENABLE()           __HAL_RCC_GPIOB_CLK_ENABLE()
+//#define MINISYS_SPIx_SCK_GPIO_CLK_DISABLE()          __HAL_RCC_GPIOB_CLK_DISABLE()
+
+//#define MINISYS_SPIx_MISO_MOSI_GPIO_PORT             GPIOB
+//#define MINISYS_SPIx_MISO_MOSI_GPIO_CLK_ENABLE()     __HAL_RCC_GPIOB_CLK_ENABLE()
+//#define MINISYS_SPIx_MISO_MOSI_GPIO_CLK_DISABLE()    __HAL_RCC_GPIOB_CLK_DISABLE()
+//#define MINISYS_SPIx_MISO_PIN                        GPIO_PIN_14
+//#define MINISYS_SPIx_MOSI_PIN                        GPIO_PIN_15
+
 /* Maximum Timeout values for flags waiting loops. These timeouts are not based
    on accurate values, they just guarantee that the application will not remain
    stuck if the SPI communication is corrupted.

@@ -116,7 +116,7 @@ int main(void)
 
   MX_FATFS_Init();
   MX_USB_DEVICE_Init();
-  //MX_SPI2_Init();
+  MX_SPI2_Init();
 
   BSP_LCD_Init();
   BSP_LCD_Clear(LCD_COLOR_BLUE);

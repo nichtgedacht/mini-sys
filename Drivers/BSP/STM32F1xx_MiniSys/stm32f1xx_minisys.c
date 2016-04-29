@@ -41,6 +41,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "../STM32F1xx_MiniSys/stm32f1xx_minisys.h"
+#include "spi.h"
 
 /** @addtogroup BSP
   * @{
@@ -78,7 +79,8 @@
 
 #ifdef HAL_SPI_MODULE_ENABLED
 uint32_t SpixTimeout = MINISYS_SPIx_TIMEOUT_MAX;        /*<! Value of Timeout when SPI communication fails */
-static SPI_HandleTypeDef hMINISYS_Spi;
+// using hspi2 from CubeMX generated spi.c/h now
+//static SPI_HandleTypeDef hMINISYS_Spi;
 #endif /* HAL_SPI_MODULE_ENABLED */
 
 /**
@@ -89,11 +91,10 @@ static SPI_HandleTypeDef hMINISYS_Spi;
   * @{
   */ 
 #ifdef HAL_SPI_MODULE_ENABLED
-static void               SPIx_Init(void);
+//static void               SPIx_Init(void);
 static void               SPIx_Write(uint8_t Value);
-//static uint32_t           SPIx_Read(void);
 static void               SPIx_Error (void);
-static void               SPIx_MspInit(void);
+//static void               SPIx_MspInit(void);
 /* new functions */
 static void               SPIx_WriteReadData(const uint8_t *DataIn, uint8_t *DataOut, uint16_t DataLegnth);
 #endif /* HAL_SPI_MODULE_ENABLED */
@@ -136,79 +137,79 @@ void                      LCD_Delay(uint32_t delay);
 /******************************************************************************
                             BUS OPERATIONS
 *******************************************************************************/
-/**
-  * @brief  Initializes SPI MSP.
-  * @retval None
-  */
-static void SPIx_MspInit(void)
-{
-  GPIO_InitTypeDef  gpioinitstruct = {0};
-  
-  /*** Configure the GPIOs ***/  
-  /* Enable GPIO clock */
-  MINISYS_SPIx_SCK_GPIO_CLK_ENABLE();
-  MINISYS_SPIx_MISO_MOSI_GPIO_CLK_ENABLE();
+///**
+//  * @brief  Initializes SPI MSP.
+//  * @retval None
+//  */
+//static void SPIx_MspInit(void)
+//{
+//  GPIO_InitTypeDef  gpioinitstruct = {0};
+//
+//  /*** Configure the GPIOs ***/
+//  /* Enable GPIO clock */
+//  MINISYS_SPIx_SCK_GPIO_CLK_ENABLE();
+//  MINISYS_SPIx_MISO_MOSI_GPIO_CLK_ENABLE();
+//
+//  /* Configure SPI SCK */
+//  gpioinitstruct.Pin        = MINISYS_SPIx_SCK_PIN;
+//  //gpioinitstruct.Pull   = GPIO_PULLUP;
+//  //gpioinitstruct.Mode       = GPIO_MODE_OUTPUT_PP;
+//  gpioinitstruct.Mode       = GPIO_MODE_AF_PP;
+//
+//  gpioinitstruct.Speed      = GPIO_SPEED_FREQ_HIGH;
+//  HAL_GPIO_Init(MINISYS_SPIx_SCK_GPIO_PORT, &gpioinitstruct);
+//
+//  /* Configure SPI MISO and MOSI */
+//  gpioinitstruct.Pin        = MINISYS_SPIx_MOSI_PIN;
+//  //gpioinitstruct.Pull   = GPIO_PULLUP;
+//
+//  HAL_GPIO_Init(MINISYS_SPIx_MISO_MOSI_GPIO_PORT, &gpioinitstruct);
+//
+//  gpioinitstruct.Pin        = MINISYS_SPIx_MISO_PIN;
+//  //gpioinitstruct.Pull   = GPIO_PULLUP;
+//
+//  gpioinitstruct.Mode       = GPIO_MODE_INPUT;
+//  HAL_GPIO_Init(MINISYS_SPIx_MISO_MOSI_GPIO_PORT, &gpioinitstruct);
+//
+//  /*** Configure the SPI peripheral ***/
+//  /* Enable SPI clock */
+//  MINISYS_SPIx_CLK_ENABLE();
+//}
 
-  /* Configure SPI SCK */
-  gpioinitstruct.Pin        = MINISYS_SPIx_SCK_PIN;
-  //gpioinitstruct.Pull   = GPIO_PULLUP;
-  //gpioinitstruct.Mode       = GPIO_MODE_OUTPUT_PP;
-  gpioinitstruct.Mode       = GPIO_MODE_AF_PP;
-
-  gpioinitstruct.Speed      = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(MINISYS_SPIx_SCK_GPIO_PORT, &gpioinitstruct);
-
-  /* Configure SPI MISO and MOSI */ 
-  gpioinitstruct.Pin        = MINISYS_SPIx_MOSI_PIN;
-  //gpioinitstruct.Pull   = GPIO_PULLUP;
-
-  HAL_GPIO_Init(MINISYS_SPIx_MISO_MOSI_GPIO_PORT, &gpioinitstruct);
-  
-  gpioinitstruct.Pin        = MINISYS_SPIx_MISO_PIN;
-  //gpioinitstruct.Pull   = GPIO_PULLUP;
-
-  gpioinitstruct.Mode       = GPIO_MODE_INPUT;
-  HAL_GPIO_Init(MINISYS_SPIx_MISO_MOSI_GPIO_PORT, &gpioinitstruct);
-
-  /*** Configure the SPI peripheral ***/ 
-  /* Enable SPI clock */
-  MINISYS_SPIx_CLK_ENABLE();
-}
-
-/**
-  * @brief  Initializes SPI HAL.
-  * @retval None
-  */
-static void SPIx_Init(void)
-{
-  if(HAL_SPI_GetState(&hMINISYS_Spi) == HAL_SPI_STATE_RESET)
-  {
-    /* SPI Config */
-    hMINISYS_Spi.Instance = MINISYS_SPIx;
-      /* SPI baudrate is set to 8 MHz maximum (PCLK2/SPI_BaudRatePrescaler = 64/8 = 8 MHz) 
-       to verify these constraints:
-          - ST7735 LCD SPI interface max baudrate is 15MHz for write and 6.66MHz for read
-            Since the provided driver doesn't use read capability from LCD, only constraint 
-            on write baudrate is considered.
-          - SD card SPI interface max baudrate is 25MHz for write/read
-          - PCLK2 max frequency is 32 MHz 
-       */
-    hMINISYS_Spi.Init.BaudRatePrescaler  = SPI_BAUDRATEPRESCALER_4;
-    hMINISYS_Spi.Init.Direction          = SPI_DIRECTION_2LINES;
-    hMINISYS_Spi.Init.CLKPhase           = SPI_PHASE_1EDGE;
-    hMINISYS_Spi.Init.CLKPolarity        = SPI_POLARITY_LOW;
-    hMINISYS_Spi.Init.CRCCalculation     = SPI_CRCCALCULATION_DISABLE;
-    hMINISYS_Spi.Init.CRCPolynomial      = 7;
-    hMINISYS_Spi.Init.DataSize           = SPI_DATASIZE_8BIT;
-    hMINISYS_Spi.Init.FirstBit           = SPI_FIRSTBIT_MSB;
-    hMINISYS_Spi.Init.NSS                = SPI_NSS_SOFT;
-    hMINISYS_Spi.Init.TIMode             = SPI_TIMODE_DISABLE;
-    hMINISYS_Spi.Init.Mode               = SPI_MODE_MASTER;
-    
-    SPIx_MspInit();
-    HAL_SPI_Init(&hMINISYS_Spi);
-  }
-}
+///**
+//  * @brief  Initializes SPI HAL.
+//  * @retval None
+//  */
+//static void SPIx_Init(void)
+//{
+//  if(HAL_SPI_GetState(&hMINISYS_Spi) == HAL_SPI_STATE_RESET)
+//  {
+//    /* SPI Config */
+//    hMINISYS_Spi.Instance = MINISYS_SPIx;
+//      /* SPI baudrate is set to 8 MHz maximum (PCLK2/SPI_BaudRatePrescaler = 64/8 = 8 MHz)
+//       to verify these constraints:
+//          - ST7735 LCD SPI interface max baudrate is 15MHz for write and 6.66MHz for read
+//            Since the provided driver doesn't use read capability from LCD, only constraint
+//            on write baudrate is considered.
+//          - SD card SPI interface max baudrate is 25MHz for write/read
+//          - PCLK2 max frequency is 32 MHz
+//       */
+//    hMINISYS_Spi.Init.BaudRatePrescaler  = SPI_BAUDRATEPRESCALER_4;
+//    hMINISYS_Spi.Init.Direction          = SPI_DIRECTION_2LINES;
+//    hMINISYS_Spi.Init.CLKPhase           = SPI_PHASE_1EDGE;
+//    hMINISYS_Spi.Init.CLKPolarity        = SPI_POLARITY_LOW;
+//    hMINISYS_Spi.Init.CRCCalculation     = SPI_CRCCALCULATION_DISABLE;
+//    hMINISYS_Spi.Init.CRCPolynomial      = 7;
+//    hMINISYS_Spi.Init.DataSize           = SPI_DATASIZE_8BIT;
+//    hMINISYS_Spi.Init.FirstBit           = SPI_FIRSTBIT_MSB;
+//    hMINISYS_Spi.Init.NSS                = SPI_NSS_SOFT;
+//    hMINISYS_Spi.Init.TIMode             = SPI_TIMODE_DISABLE;
+//    hMINISYS_Spi.Init.Mode               = SPI_MODE_MASTER;
+//
+//    SPIx_MspInit();
+//    HAL_SPI_Init(&hMINISYS_Spi);
+//  }
+//}
 
 /**
   * @brief  SPI Write a byte to device
@@ -220,7 +221,7 @@ static void SPIx_WriteReadData(const uint8_t *DataIn, uint8_t *DataOut, uint16_t
 {
   HAL_StatusTypeDef status = HAL_OK;
 
-  status = HAL_SPI_TransmitReceive(&hMINISYS_Spi, (uint8_t*) DataIn, DataOut, DataLegnth, SpixTimeout);
+  status = HAL_SPI_TransmitReceive(&hspi2, (uint8_t*) DataIn, DataOut, DataLegnth, SpixTimeout);
 
   /* Check the communication status */
   if(status != HAL_OK)
@@ -240,7 +241,7 @@ static void SPIx_Write(uint8_t Value)
 {
   HAL_StatusTypeDef status = HAL_OK;
 
-  status = HAL_SPI_Transmit(&hMINISYS_Spi, (uint8_t*) &Value, 1, SpixTimeout);
+  status = HAL_SPI_Transmit(&hspi2, (uint8_t*) &Value, 1, SpixTimeout);
 
   /* Check the communication status */
   if(status != HAL_OK)
@@ -257,10 +258,11 @@ static void SPIx_Write(uint8_t Value)
 static void SPIx_Error (void)
 {
   /* De-initialize the SPI communication BUS */
-  HAL_SPI_DeInit(&hMINISYS_Spi);
+  HAL_SPI_DeInit(&hspi2);
 
   /* Re-Initiaize the SPI communication BUS */
-  SPIx_Init();
+  // SPIx_Init();
+  MX_SPI2_Init();
 }
 
 /******************************************************************************
@@ -290,7 +292,8 @@ void SD_IO_Init(void)
 
   /*------------Put SD in SPI mode--------------*/
   /* SD SPI Config */
-  SPIx_Init();
+  /* already done by MX */
+  //SPIx_Init();
 
   /* SD chip select high */
   SD_CS_HIGH();
@@ -393,12 +396,16 @@ void LCD_IO_Init(void)
   LCD_RST_LOW();
   HAL_Delay(500);
   LCD_RST_HIGH();
+//  HAL_Delay(50);
 
   /* LCD chip select high */
   LCD_CS_HIGH();
   
+  HAL_Delay(5);
+
   /* LCD SPI Config */
-  SPIx_Init();
+  /* already done by MX */
+  //SPIx_Init();
 }
 
 /**
@@ -450,24 +457,24 @@ void LCD_IO_WriteMultipleData(uint8_t *pData, uint32_t Size)
     for (counter = Size; counter != 0; counter--)
     {
 
-      while(((hMINISYS_Spi.Instance->SR) & SPI_FLAG_TXE) != SPI_FLAG_TXE)
+      while(((hspi2.Instance->SR) & SPI_FLAG_TXE) != SPI_FLAG_TXE)
       {
       }
 
       /* Need to invert bytes for LCD*/
-      *((__IO uint8_t*)&hMINISYS_Spi.Instance->DR) = *(pData+1);
+      *((__IO uint8_t*)&hspi2.Instance->DR) = *(pData+1);
 
-      while(((hMINISYS_Spi.Instance->SR) & SPI_FLAG_TXE) != SPI_FLAG_TXE)
+      while(((hspi2.Instance->SR) & SPI_FLAG_TXE) != SPI_FLAG_TXE)
       {
       }
 
-      *((__IO uint8_t*)&hMINISYS_Spi.Instance->DR) = *pData;
+      *((__IO uint8_t*)&hspi2.Instance->DR) = *pData;
       counter--;
       pData += 2;
     }
   
     /* Wait until the bus is ready before releasing Chip select */ 
-    while(((hMINISYS_Spi.Instance->SR) & SPI_FLAG_BSY) != RESET)
+    while(((hspi2.Instance->SR) & SPI_FLAG_BSY) != RESET)
     {
     }
 
@@ -498,23 +505,23 @@ void LCD_IO_WriteColorData(uint16_t *pData, uint32_t Size)
     for (counter = Size; counter != 0; counter--)
     {
 
-     while(((hMINISYS_Spi.Instance->SR) & SPI_FLAG_TXE) != SPI_FLAG_TXE)
+     while(((hspi2.Instance->SR) & SPI_FLAG_TXE) != SPI_FLAG_TXE)
      {
      }
 
     /* Need to invert bytes for LCD*/
-     *((__IO uint8_t*)&hMINISYS_Spi.Instance->DR) = *pData >> 8;
+     *((__IO uint8_t*)&hspi2.Instance->DR) = *pData >> 8;
 
-    while(((hMINISYS_Spi.Instance->SR) & SPI_FLAG_TXE) != SPI_FLAG_TXE)
+    while(((hspi2.Instance->SR) & SPI_FLAG_TXE) != SPI_FLAG_TXE)
      {
      }
 
-    *((__IO uint8_t*)&hMINISYS_Spi.Instance->DR) = *pData;
+    *((__IO uint8_t*)&hspi2.Instance->DR) = *pData;
 
    }
 
   /* Wait until the bus is ready before releasing Chip select */
-   while(((hMINISYS_Spi.Instance->SR) & SPI_FLAG_BSY) != RESET)
+   while(((hspi2.Instance->SR) & SPI_FLAG_BSY) != RESET)
    {
    }
 
