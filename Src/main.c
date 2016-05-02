@@ -129,9 +129,6 @@ int main(void)
   // enable USB on marple mine clone or use reset as default state
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET);
 
-//  sprintf(buf, "Hallo\n");
-//  CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
-
   res = BSP_SD_Init();
 
   if ( res != BSP_SD_OK)
@@ -240,8 +237,6 @@ int main(void)
       //sprintf(buf, "free: %ld", free_flash);
       // ##########################################################
 
-
-
       BSP_LCD_SetBackColor(color);
       BSP_LCD_DisplayStringAt(0, BSP_LCD_GetYSize() / 2 - 6, (uint8_t *) buf, CENTER_MODE);
 
@@ -275,7 +270,6 @@ int main(void)
 
       if ( red == 1 )
       {
-
           red = 0;
           sprintf(buf, "V1: %3.3f V", volt1);
 

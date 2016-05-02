@@ -1,6 +1,6 @@
 Configuration	mini-sys
 STM32CubeMX 	4.14.0
-Date	04/25/2016
+Date	05/02/2016
 MCU	STM32F103C8Tx
 
 
@@ -40,6 +40,7 @@ Pin Nb	PINs	FUNCTIONs	LABELs
 33	PA12	USB_DP	
 34	PA13	SYS_JTMS-SWDIO	
 37	PA14	SYS_JTCK-SWCLK	
+39	PB3	GPIO_Output	
 40	PB4	GPIO_Output	
 41	PB5	GPIO_Output	
 42	PB6	GPIO_Output	
@@ -52,7 +53,7 @@ SOFTWARE PROJECT
 
 Project Settings : 
 Project Name : mini-sys
-Project Folder : /array_data01/STM32-15/mini-sys
+Project Folder : /array_data01/STM32-16/mini-sys
 Toolchain / IDE : SW4STM32
 Firmware Package Name and Version : STM32Cube FW_F1 V1.3.1
 
