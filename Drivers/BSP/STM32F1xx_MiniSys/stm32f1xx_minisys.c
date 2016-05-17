@@ -91,15 +91,19 @@ uint32_t SpixTimeout = MINISYS_SPIx_TIMEOUT_MAX;        /*<! Value of Timeout wh
   * @{
   */ 
 #ifdef HAL_SPI_MODULE_ENABLED
-//static void               SPIx_Init(void);
 static void               SPIx_Write(uint8_t Value);
 static void               SPIx_Error (void);
-//static void               SPIx_MspInit(void);
 /* new functions */
 static void               SPIx_WriteReadData(const uint8_t *DataIn, uint8_t *DataOut, uint16_t DataLegnth);
 #endif /* HAL_SPI_MODULE_ENABLED */
 
 #ifdef HAL_SPI_MODULE_ENABLED
+/* MPU IO functions */
+void                      MPU_IO_Init(void);
+uint8_t                   MPU_IO_WriteReadReg(uint8_t MPUReg, uint8_t arg);
+uint8_t                   MPU_IO_WriteByte(uint8_t Data);
+void                      MPU_IO_CSState(uint8_t val);
+
 /* SD IO functions */
 void                      SD_IO_Init(void);
 //HAL_StatusTypeDef         SD_IO_WriteCmd(uint8_t Cmd, uint32_t Arg, uint8_t Crc, uint8_t Response);
@@ -137,79 +141,6 @@ void                      LCD_Delay(uint32_t delay);
 /******************************************************************************
                             BUS OPERATIONS
 *******************************************************************************/
-///**
-//  * @brief  Initializes SPI MSP.
-//  * @retval None
-//  */
-//static void SPIx_MspInit(void)
-//{
-//  GPIO_InitTypeDef  gpioinitstruct = {0};
-//
-//  /*** Configure the GPIOs ***/
-//  /* Enable GPIO clock */
-//  MINISYS_SPIx_SCK_GPIO_CLK_ENABLE();
-//  MINISYS_SPIx_MISO_MOSI_GPIO_CLK_ENABLE();
-//
-//  /* Configure SPI SCK */
-//  gpioinitstruct.Pin        = MINISYS_SPIx_SCK_PIN;
-//  //gpioinitstruct.Pull   = GPIO_PULLUP;
-//  //gpioinitstruct.Mode       = GPIO_MODE_OUTPUT_PP;
-//  gpioinitstruct.Mode       = GPIO_MODE_AF_PP;
-//
-//  gpioinitstruct.Speed      = GPIO_SPEED_FREQ_HIGH;
-//  HAL_GPIO_Init(MINISYS_SPIx_SCK_GPIO_PORT, &gpioinitstruct);
-//
-//  /* Configure SPI MISO and MOSI */
-//  gpioinitstruct.Pin        = MINISYS_SPIx_MOSI_PIN;
-//  //gpioinitstruct.Pull   = GPIO_PULLUP;
-//
-//  HAL_GPIO_Init(MINISYS_SPIx_MISO_MOSI_GPIO_PORT, &gpioinitstruct);
-//
-//  gpioinitstruct.Pin        = MINISYS_SPIx_MISO_PIN;
-//  //gpioinitstruct.Pull   = GPIO_PULLUP;
-//
-//  gpioinitstruct.Mode       = GPIO_MODE_INPUT;
-//  HAL_GPIO_Init(MINISYS_SPIx_MISO_MOSI_GPIO_PORT, &gpioinitstruct);
-//
-//  /*** Configure the SPI peripheral ***/
-//  /* Enable SPI clock */
-//  MINISYS_SPIx_CLK_ENABLE();
-//}
-
-///**
-//  * @brief  Initializes SPI HAL.
-//  * @retval None
-//  */
-//static void SPIx_Init(void)
-//{
-//  if(HAL_SPI_GetState(&hMINISYS_Spi) == HAL_SPI_STATE_RESET)
-//  {
-//    /* SPI Config */
-//    hMINISYS_Spi.Instance = MINISYS_SPIx;
-//      /* SPI baudrate is set to 8 MHz maximum (PCLK2/SPI_BaudRatePrescaler = 64/8 = 8 MHz)
-//       to verify these constraints:
-//          - ST7735 LCD SPI interface max baudrate is 15MHz for write and 6.66MHz for read
-//            Since the provided driver doesn't use read capability from LCD, only constraint
-//            on write baudrate is considered.
-//          - SD card SPI interface max baudrate is 25MHz for write/read
-//          - PCLK2 max frequency is 32 MHz
-//       */
-//    hMINISYS_Spi.Init.BaudRatePrescaler  = SPI_BAUDRATEPRESCALER_4;
-//    hMINISYS_Spi.Init.Direction          = SPI_DIRECTION_2LINES;
-//    hMINISYS_Spi.Init.CLKPhase           = SPI_PHASE_1EDGE;
-//    hMINISYS_Spi.Init.CLKPolarity        = SPI_POLARITY_LOW;
-//    hMINISYS_Spi.Init.CRCCalculation     = SPI_CRCCALCULATION_DISABLE;
-//    hMINISYS_Spi.Init.CRCPolynomial      = 7;
-//    hMINISYS_Spi.Init.DataSize           = SPI_DATASIZE_8BIT;
-//    hMINISYS_Spi.Init.FirstBit           = SPI_FIRSTBIT_MSB;
-//    hMINISYS_Spi.Init.NSS                = SPI_NSS_SOFT;
-//    hMINISYS_Spi.Init.TIMode             = SPI_TIMODE_DISABLE;
-//    hMINISYS_Spi.Init.Mode               = SPI_MODE_MASTER;
-//
-//    SPIx_MspInit();
-//    HAL_SPI_Init(&hMINISYS_Spi);
-//  }
-//}
 
 /**
   * @brief  SPI Write a byte to device
@@ -268,6 +199,82 @@ static void SPIx_Error (void)
 /******************************************************************************
                             LINK OPERATIONS
 *******************************************************************************/
+
+/**************************** LINK MPU ****************************************/
+
+/**
+  * @brief Set the MPU_CS pin.
+  * @param val: pin value.
+  */
+void MPU_IO_CSState(uint8_t val)
+{
+  if(val == 1)
+  {
+    MPU_CS_HIGH();
+  }
+  else
+  {
+    MPU_CS_LOW();
+  }
+}
+
+/**
+  * @brief  Initializes the MPU
+  * @retval None
+  */
+void MPU_IO_Init(void)
+{
+	  GPIO_InitTypeDef  gpioinitstruct = {0};
+
+	  /* MPU_CS_GPIO Periph clock enable */
+	  MPU_CS_GPIO_CLK_ENABLE();
+
+	  /* Configure MPU_CS_PIN pin */
+	  gpioinitstruct.Pin    = MPU_CS_PIN;
+	  gpioinitstruct.Mode   = GPIO_MODE_OUTPUT_PP;
+	  gpioinitstruct.Speed  = GPIO_SPEED_FREQ_HIGH;
+	  HAL_GPIO_Init(MPU_CS_GPIO_PORT, &gpioinitstruct);
+
+	  MPU_CS_HIGH();
+}
+
+/**
+  * @brief  Writes command and arg to MPU.
+  * @param  MPUReg: Address of the selected register.
+  * @param  arg: setting value
+  * @retval None
+  */
+uint8_t MPU_IO_WriteReadReg(uint8_t MPUReg, uint8_t arg)
+{
+
+  uint8_t resp;
+
+  /* Reset LCD control line CS */
+  MPU_CS_LOW();
+
+  /* Send Command */
+  SPIx_Write(MPUReg);
+
+  /* Send the byte */
+  SPIx_WriteReadData(&arg,&resp,1);
+
+  /* Deselect : Chip Select high */
+  MPU_CS_HIGH();
+
+  return resp;
+
+}
+
+uint8_t MPU_IO_WriteByte(uint8_t Data)
+{
+  uint8_t tmp;
+
+  /* Send the byte */
+  SPIx_WriteReadData(&Data,&tmp,1);
+
+  return tmp;
+}
+
 
 /********************************* LINK SD ************************************/
 /**

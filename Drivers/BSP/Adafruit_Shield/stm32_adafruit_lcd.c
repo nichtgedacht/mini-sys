@@ -279,11 +279,13 @@ void BSP_LCD_Clear(uint16_t Color)
   */
 void BSP_LCD_ClearStringLine(uint16_t Line)
 { 
- // uint32_t color_backup = DrawProp.TextColor;
- // DrawProp.TextColor = DrawProp.BackColor;;
+  uint32_t color_backup = DrawProp.TextColor;
+  DrawProp.TextColor = DrawProp.BackColor;;
     
   /* Draw a rectangle with background color */
   lcd_drv->DrawFillRect(DrawProp.TextColor, 0, (Line * DrawProp.pFont->Height), lcd_drv->GetLcdPixelWidth(), DrawProp.pFont->Height);
+
+  DrawProp.TextColor = color_backup;
 
 }
 

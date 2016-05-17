@@ -51,7 +51,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
-#define BITMAP_BUFFER_SIZE 5000 /* You can adapt this size depending on the amount of RAM available */
+#define BITMAP_BUFFER_SIZE 1000 /* You can adapt this size depending on the amount of RAM available */
 #define BITMAP_HEADER_SIZE sizeof(BmpHeader) /* Bitmap specificity */
 #define MIN(a,b) (((a)<(b))?(a):(b))
 /* Private macro -------------------------------------------------------------*/

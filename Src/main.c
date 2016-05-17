@@ -46,6 +46,8 @@
 #include "usbd_cdc_if.h"
 #include "fatfs_storage.h"
 #include "unistd.h"
+#include "mpu9250.h"
+#include "math.h"
 
 /* USER CODE END Includes */
 
@@ -74,6 +76,13 @@ char buf[20]={0};
 uint16_t color=LCD_COLOR_WHITE;
 const uint8_t flash_top=255;
 uint32_t free_flash;
+uint8_t whoami;
+uint8_t mpu_res;
+uint32_t tick, prev_tick, dt, dtx;
+float roll, pitch, yaw;
+float bla;
+int xp, yp;
+float vx=0.0f, vy=0.0f;
 //uint32_t alloc;
 
 /* USER CODE END PV */
@@ -118,17 +127,28 @@ int main(void)
   MX_USB_DEVICE_Init();
   MX_SPI2_Init();
 
+  //############### MPU Test init ########################################
+  BSP_MPU_Init(99, 0x06, 0x06);
+  BSP_MPU_GyroCalibration();
+  //############ end MPU Test init #######################################
+
   BSP_LCD_Init();
-  BSP_LCD_Clear(LCD_COLOR_BLUE);
+  BSP_LCD_Clear(LCD_COLOR_BLACK);
   BSP_LCD_SetTextColor(LCD_COLOR_WHITE);
   BSP_LCD_SetBackColor(LCD_COLOR_BLUE);
   BSP_LCD_SetFont(&Font20);
   BSP_LCD_SetRotation(3);
   color=LCD_COLOR_WHITE;
 
+  //############### MPU Test init ########################################
+  xp = BSP_LCD_GetXSize()/2;
+  yp = BSP_LCD_GetYSize()/2;
+  //############ end MPU Test init #######################################
+
   // enable USB on marple mine clone or use reset as default state
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET);
 
+  //############ init SD-card, signal errors by LED ######################
   res = BSP_SD_Init();
 
   if ( res != BSP_SD_OK)
@@ -163,7 +183,7 @@ int main(void)
           }
 
   }
-
+  //############ end init SD-card, signal errors by LED ##################
 
   /* USER CODE END 2 */
 
@@ -178,12 +198,15 @@ int main(void)
       HAL_GPIO_TogglePin(GPIOB,  GPIO_PIN_1);
       HAL_GPIO_TogglePin(GPIOC,  GPIO_PIN_13);
 
+
+      //################### ADC test #####################################
+
       HAL_ADCEx_Calibration_Start(&hadc1);
       if ( HAL_ADC_Start(&hadc1) == HAL_OK )
       {
           if ( HAL_ADC_PollForConversion(&hadc1, 100) == HAL_OK )
           {
-              volt1 =  (3.3 * HAL_ADC_GetValue(&hadc1)) / 4090;
+              volt1 =  (3.3 * HAL_ADC_GetValue(&hadc1)) / 4090; // calibrate
           }
 
           HAL_ADC_Stop(&hadc1);
@@ -194,14 +217,220 @@ int main(void)
       {
           if ( HAL_ADC_PollForConversion(&hadc2, 100) == HAL_OK )
           {
-              volt2 =  (3.3 * HAL_ADC_GetValue(&hadc2)) / 4090;
+              volt2 =  (3.3 * HAL_ADC_GetValue(&hadc2)) / 4090;  // calibrate
           }
 
           HAL_ADC_Stop(&hadc2);
       }
 
-     //BSP_LCD_DisplayChar(20, 20, 'H');
-     //BSP_LCD_DisplayStringAt(uint16_t Xpos, uint16_t Ypos, uint8_t *Text, Line_ModeTypdef Mode)
+      //###################### end ADC test ##############################
+
+
+      //############### MPU Test #########################################
+
+      BSP_LCD_SetFont(&Font12);
+      BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
+
+      BSP_MPU_read_rot();
+      BSP_MPU_read_acc();
+
+      gy[x] += gyroOffset[x];
+      gy[y] += gyroOffset[y];
+      gy[z] += gyroOffset[z];
+
+
+      tick = HAL_GetTick();
+      dt = tick - prev_tick;
+      prev_tick = tick;
+
+      BSP_MPU_updateIMU(ac[x], ac[y], ac[z], gy[x], gy[y], gy[z], dt);
+
+      BSP_MPU_getEuler(&roll, &pitch, &yaw);
+
+      //########### moving circle by gravity ########################################
+
+	  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+	  BSP_LCD_DrawCircle(xp, yp , 5);
+
+	  vx += sinf(pitch)*20;
+	  vy += sinf(roll)*20;
+	  xp += roundf(vx);
+	  yp += roundf(vy);
+
+	  if ( xp < 5 ) {
+		  xp = 5;
+		  vx = 0;
+	  }
+	  if ( yp < 5 ) {
+		  yp = 5;
+		  vy = 0;
+	  }
+	  if ( yp > 122) {
+		  yp = 122;
+		  vy = 0;
+	  }
+	  if ( xp > 154) {
+		  xp = 154;
+		  vx = 0;
+	  }
+
+	  BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
+	  BSP_LCD_DrawCircle(xp, yp , 5);
+
+	  HAL_Delay(20);
+
+	  //############ end moving circle by gravity ###################################
+
+
+
+/*
+      //############ show Euler angles and quaternion ####################
+
+      roll  *= 180 / M_PI;
+	  pitch *= 180 / M_PI;
+	  yaw   *= 180 / M_PI;
+
+	  sprintf(buf, "roll: %f", roll);
+      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+      BSP_LCD_FillRect(80, 4 * 12, BSP_LCD_GetYSize() - 80, 12);
+      BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
+      BSP_LCD_DisplayStringAtLine(4, (uint8_t *)buf);
+
+      sprintf(buf, "pitch: %f", pitch);
+      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+      BSP_LCD_FillRect(80, 5 * 12, BSP_LCD_GetYSize() - 80, 12);
+      BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
+      BSP_LCD_DisplayStringAtLine(5, (uint8_t *)buf);
+
+      sprintf(buf, "yaw: %f", yaw);
+      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+      BSP_LCD_FillRect(80, 6 * 12, BSP_LCD_GetYSize() - 80, 12);
+      BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
+      BSP_LCD_DisplayStringAtLine(6, (uint8_t *)buf);
+
+
+      sprintf(buf, "q0: %f", q0);
+      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+      BSP_LCD_FillRect(80, 0 * 12, BSP_LCD_GetYSize() - 80, 12);
+      BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+      BSP_LCD_DisplayStringAtLine(0, (uint8_t *)buf);
+
+      sprintf(buf, "q1: %f", q1);
+      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+      BSP_LCD_FillRect(80, 1 * 12, BSP_LCD_GetYSize() - 80, 12);
+      BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+      BSP_LCD_DisplayStringAtLine(1, (uint8_t *)buf);
+
+      sprintf(buf, "q2: %f", q2);
+      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+      BSP_LCD_FillRect(80, 2 * 12, BSP_LCD_GetYSize() - 80, 12);
+      BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+      BSP_LCD_DisplayStringAtLine(2, (uint8_t *)buf);
+
+      sprintf(buf, "q3: %f", q3);
+      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+      BSP_LCD_FillRect(80, 3 * 12, BSP_LCD_GetYSize() - 80, 12);
+      BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+      BSP_LCD_DisplayStringAtLine(3, (uint8_t *)buf);
+
+      //############ end show Euler angles and quaternion ################
+
+*/
+
+
+/*
+      //############ show values from sensors ############################
+
+      sprintf(buf, "gx: %f", gy[x]);
+      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+      BSP_LCD_FillRect(80, 0 * 12, BSP_LCD_GetYSize() - 80, 12);
+      BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+      BSP_LCD_DisplayStringAtLine(0, (uint8_t *)buf);
+
+      sprintf(buf, "gy: %f", gy[y]);
+      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+      BSP_LCD_FillRect(80, 1 * 12, BSP_LCD_GetYSize() - 80, 12);
+      BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+      BSP_LCD_DisplayStringAtLine(1, (uint8_t *)buf);
+
+      sprintf(buf, "gz: %f", gy[z]);
+      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+      BSP_LCD_FillRect(80, 2 * 12, BSP_LCD_GetYSize() - 80, 12);
+      BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+      BSP_LCD_DisplayStringAtLine(2, (uint8_t *)buf);
+
+      sprintf(buf, "ax: %f", ac[x]);
+      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+      BSP_LCD_FillRect(80, 3 * 12, BSP_LCD_GetYSize() - 80, 12);
+      BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
+      BSP_LCD_DisplayStringAtLine(3, (uint8_t *)buf);
+
+      sprintf(buf, "ay: %f", ac[y]);
+      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+      BSP_LCD_FillRect(80, 4 * 12, BSP_LCD_GetYSize() - 80, 12);
+      BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
+      BSP_LCD_DisplayStringAtLine(4, (uint8_t *)buf);
+
+      sprintf(buf, "az: %f", ac[z]);
+      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+      BSP_LCD_FillRect(80, 5 * 12, BSP_LCD_GetYSize() - 80, 12);
+      BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
+      BSP_LCD_DisplayStringAtLine(5, (uint8_t *)buf);
+
+      //############ end show values from sensors ########################
+
+      //############ IMU SPI test ########################################
+	  //whoami = BSP_MPU_Whoami();
+	  //sprintf(buf, "whoami: %d", whoami);
+	  //BSP_LCD_DisplayStringAtLine(0, (uint8_t *)buf);
+      //BSP_MPU_ReadRegs(MPUREG_WHOAMI, &mpu_res, 1 );
+      //sprintf(buf, "mpu_res: %d", mpu_res);
+      //BSP_LCD_DisplayStringAtLine(4, (uint8_t *)buf);
+	  //############ end IMU SPI test ####################################
+
+
+
+      //############ display gyro offset #################################
+	  sprintf(buf, "gyo[x]  %f",  gyroOffset[x]);
+	  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+	  BSP_LCD_SetTextColor(LCD_COLOR_BLUE);
+	  BSP_LCD_DisplayStringAtLine(6, (uint8_t *)buf);
+
+	  sprintf(buf, "gyo[y]  %f",  gyroOffset[y]);
+	  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+      BSP_LCD_SetTextColor(LCD_COLOR_BLUE);
+      BSP_LCD_DisplayStringAtLine(7, (uint8_t *)buf);
+
+      sprintf(buf, "gyo[z]  %f",  gyroOffset[z]);
+      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+      BSP_LCD_SetTextColor(LCD_COLOR_BLUE);
+      BSP_LCD_DisplayStringAtLine(8, (uint8_t *)buf);
+      //############ end display gyro offset #############################
+
+
+     //############# show loop speed #####################################
+	 dtx = dt + 1;
+	 if ( dtx > dt)
+	 {
+	     dtx = dt;
+	 }
+	 sprintf(buf, "dt: %ld", dtx);
+	 BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+	 BSP_LCD_FillRect(35, 9 * 12, 35, 12);
+	 BSP_LCD_SetTextColor(LCD_COLOR_BLUE);
+	 BSP_LCD_DisplayStringAtLine(9, (uint8_t *)buf);
+	 //############# end show loop speed #################################
+
+*/
+
+      //#################### end MPU Test ################################
+
+
+/*
+      //##################### Display Test ###############################
+
+      //BSP_LCD_DisplayChar(20, 20, 'H');
+      //BSP_LCD_DisplayStringAt(uint16_t Xpos, uint16_t Ypos, uint8_t *Text, Line_ModeTypdef Mode)
 
       BSP_LCD_DisplayStringAt(8, 8, (uint8_t *) "Hello", LEFT_MODE);
       BSP_LCD_DisplayStringAt(8, 8 + BSP_LCD_GetFontHeight(), (uint8_t *) "World", LEFT_MODE);
@@ -228,45 +457,35 @@ int main(void)
       //  }
       //alloc = (uint32_t) sbrk((int)0);
 
-      // ######################## free_ram   #########################
+
+      // ######################## free_ram check  ########################
       //free_ram = (0x20000000 + 1024 * 20) - (uint32_t) sbrk((int)0);
       //sprintf(buf, "free: %ld", free_ram);
-      // #############################################################
-      // ######################## free_flash ######################
+      // #################################################################
+      // ######################## free_flash check #######################
       //free_flash = (0x8000000 + 1024 * 64) - (uint32_t) &flash_top;
       //sprintf(buf, "free: %ld", free_flash);
-      // ##########################################################
+      // #################################################################
 
+      //displays last sprintf buf value on center bar
       BSP_LCD_SetBackColor(color);
       BSP_LCD_DisplayStringAt(0, BSP_LCD_GetYSize() / 2 - 6, (uint8_t *) buf, CENTER_MODE);
 
-	  // UsbDeviceFS comes magically from usbd_cdc_if.h (extern declaration)
+      //######### write to /dev/ACM0 (USB) ###############################
+	  //UsbDeviceFS comes magically from usbd_cdc_if.h (extern declaration)
+	  //this function is not well implemented
 	  if ( USBD_LL_DevConnected(&hUsbDeviceFS) == USBD_OK)
 	  {
 		  sprintf(buf, "U1: %3.3f V\n", volt1);
 		  CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
 
 	  }
-	  //CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
-	  //HAL_Delay(100);
-	  //sprintf(buf, "U2: %3.3f V\n", volt2);
-	  //CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
-
-/*
-        for (BytesWritten=0; BytesWritten<512; BytesWritten++ )
-        {
-         sprintf(buf, "%s", "                   ");
-         sprintf(buf, "%d %d\n", BytesWritten, buff[BytesWritten]);
-         CDC_Transmit_FS(buf, strlen(buf));
-         HAL_Delay(10);
-        }
-*/
+	  //######### end write to /dev/ACM0 (USB) ###########################
 
       HAL_Delay(100);
       HAL_GPIO_TogglePin(GPIOB,  GPIO_PIN_1);   // Maple mini clone LED
       HAL_GPIO_TogglePin(GPIOC,  GPIO_PIN_13);  // STM32 minimum system LED
       HAL_Delay(2500);
-
 
       if ( red == 1 )
       {
@@ -287,15 +506,15 @@ int main(void)
               if ( res == BSP_SD_OK )
               {
                   TFT_DisplayImages(0, 0, "PICT1.BMP");
-                  /*
-                  if(f_open(&bmpfile, "testfile", FA_WRITE | FA_CREATE_NEW) == FR_OK)
-                  {
-                      sprintf(buf, "%s\n", "Hallo Welt" );
-                      f_write(&bmpfile, buf, strlen(buf), &BytesWritten);
-                      f_close(&bmpfile);
 
-                  }
-                  */
+             //     if(f_open(&bmpfile, "testfile", FA_WRITE | FA_CREATE_NEW) == FR_OK)
+             //     {
+             //         sprintf(buf, "%s\n", "Hallo Welt" );
+             //         f_write(&bmpfile, buf, strlen(buf), &BytesWritten);
+             //         f_close(&bmpfile);
+             //
+             //     }
+
 
                  //  res = BSP_SD_GetStatus();
                  //  sprintf(buf, "SD_Status: %d", res );
@@ -344,7 +563,14 @@ int main(void)
               }
           }
       }
+
+      //###################### end Display Test ##########################
+
+*/
+
   }
+
+
   /* USER CODE END 3 */
 
 }

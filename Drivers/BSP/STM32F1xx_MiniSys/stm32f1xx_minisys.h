@@ -79,22 +79,6 @@
 /** @addtogroup STM32F1XX_MINISYS_BUS BUS Constants
   * @{
   */
-/*###################### SPI1 ###################################*/
-// using generated code from CubeMX for spi now
-
-//#define MINISYS_SPIx                                 SPI2
-//#define MINISYS_SPIx_CLK_ENABLE()                    __HAL_RCC_SPI2_CLK_ENABLE()
-
-//#define MINISYS_SPIx_SCK_GPIO_PORT                   GPIOB
-//#define MINISYS_SPIx_SCK_PIN                         GPIO_PIN_13
-//#define MINISYS_SPIx_SCK_GPIO_CLK_ENABLE()           __HAL_RCC_GPIOB_CLK_ENABLE()
-//#define MINISYS_SPIx_SCK_GPIO_CLK_DISABLE()          __HAL_RCC_GPIOB_CLK_DISABLE()
-
-//#define MINISYS_SPIx_MISO_MOSI_GPIO_PORT             GPIOB
-//#define MINISYS_SPIx_MISO_MOSI_GPIO_CLK_ENABLE()     __HAL_RCC_GPIOB_CLK_ENABLE()
-//#define MINISYS_SPIx_MISO_MOSI_GPIO_CLK_DISABLE()    __HAL_RCC_GPIOB_CLK_DISABLE()
-//#define MINISYS_SPIx_MISO_PIN                        GPIO_PIN_14
-//#define MINISYS_SPIx_MOSI_PIN                        GPIO_PIN_15
 
 /* Maximum Timeout values for flags waiting loops. These timeouts are not based
    on accurate values, they just guarantee that the application will not remain
@@ -106,8 +90,8 @@
 /**
   * @brief  SD Control Lines management
   */
- #define SD_CS_LOW()       HAL_GPIO_WritePin(SD_CS_GPIO_PORT, SD_CS_PIN, GPIO_PIN_RESET)
- #define SD_CS_HIGH()      HAL_GPIO_WritePin(SD_CS_GPIO_PORT, SD_CS_PIN, GPIO_PIN_SET)
+#define SD_CS_LOW()       HAL_GPIO_WritePin(SD_CS_GPIO_PORT, SD_CS_PIN, GPIO_PIN_RESET)
+#define SD_CS_HIGH()      HAL_GPIO_WritePin(SD_CS_GPIO_PORT, SD_CS_PIN, GPIO_PIN_SET)
 
     
 /**
@@ -147,11 +131,25 @@
  /**
    * @brief  LCD Reset Interface pins
    */
- #define LCD_RST_PIN                                 GPIO_PIN_5
- #define LCD_RST_GPIO_PORT                           GPIOB
- #define LCD_RST_GPIO_CLK_ENABLE()                   __HAL_RCC_GPIOB_CLK_ENABLE()
- #define LCD_RST_GPIO_CLK_DISABLE()                  __HAL_RCC_GPIOB_CLK_DISABLE()
-     
+#define LCD_RST_PIN                                 GPIO_PIN_5
+#define LCD_RST_GPIO_PORT                           GPIOB
+#define LCD_RST_GPIO_CLK_ENABLE()                   __HAL_RCC_GPIOB_CLK_ENABLE()
+#define LCD_RST_GPIO_CLK_DISABLE()                  __HAL_RCC_GPIOB_CLK_DISABLE()
+
+ /**
+   * @brief  MPU CS Interface pin
+   */
+#define MPU_CS_PIN                                 GPIO_PIN_3
+#define MPU_CS_GPIO_PORT                           GPIOB
+#define MPU_CS_GPIO_CLK_ENABLE()                   __HAL_RCC_GPIOB_CLK_ENABLE()
+#define MPU_CS_GPIO_CLK_DISABLE()                  __HAL_RCC_GPIOB_CLK_DISABLE()
+
+ /**
+   * @brief  MPU Control Lines management
+   */
+#define MPU_CS_LOW()      HAL_GPIO_WritePin(MPU_CS_GPIO_PORT, MPU_CS_PIN, GPIO_PIN_RESET)
+#define MPU_CS_HIGH()     HAL_GPIO_WritePin(MPU_CS_GPIO_PORT, MPU_CS_PIN, GPIO_PIN_SET)
+
 /**
   * @}
   */
