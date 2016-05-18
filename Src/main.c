@@ -140,10 +140,9 @@ int main(void)
   BSP_LCD_SetRotation(3);
   color=LCD_COLOR_WHITE;
 
-  //############### MPU Test init ########################################
+  //for moving circle by gravity start position
   xp = BSP_LCD_GetXSize()/2;
   yp = BSP_LCD_GetYSize()/2;
-  //############ end MPU Test init #######################################
 
   // enable USB on marple mine clone or use reset as default state
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET);
@@ -234,11 +233,6 @@ int main(void)
       BSP_MPU_read_rot();
       BSP_MPU_read_acc();
 
-      gy[x] += gyroOffset[x];
-      gy[y] += gyroOffset[y];
-      gy[z] += gyroOffset[z];
-
-
       tick = HAL_GetTick();
       dt = tick - prev_tick;
       prev_tick = tick;
@@ -247,13 +241,14 @@ int main(void)
 
       BSP_MPU_getEuler(&roll, &pitch, &yaw);
 
-      //########### moving circle by gravity ########################################
+
+      //########### moving circle by gravity #############################
 
 	  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
 	  BSP_LCD_DrawCircle(xp, yp , 5);
 
-	  vx += sinf(pitch)*20;
-	  vy += sinf(roll)*20;
+	  vx += sinf(pitch)*10;
+	  vy += sinf(roll)*10;
 	  xp += roundf(vx);
 	  yp += roundf(vy);
 
@@ -277,10 +272,13 @@ int main(void)
 	  BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
 	  BSP_LCD_DrawCircle(xp, yp , 5);
 
-	  HAL_Delay(20);
 
-	  //############ end moving circle by gravity ###################################
+	  sprintf(buf, "%3.3f,%3.3f,%3.3f\n", yaw, pitch, roll);
+	  CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
 
+	  HAL_Delay(10);
+
+	  //############ end moving circle by gravity ########################
 
 
 /*
@@ -391,20 +389,20 @@ int main(void)
 
 
       //############ display gyro offset #################################
-	  sprintf(buf, "gyo[x]  %f",  gyroOffset[x]);
-	  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-	  BSP_LCD_SetTextColor(LCD_COLOR_BLUE);
-	  BSP_LCD_DisplayStringAtLine(6, (uint8_t *)buf);
+	  //sprintf(buf, "gyo[x]  %f",  gyroOffset[x]);
+	  //BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+	  //BSP_LCD_SetTextColor(LCD_COLOR_BLUE);
+	  //BSP_LCD_DisplayStringAtLine(6, (uint8_t *)buf);
 
-	  sprintf(buf, "gyo[y]  %f",  gyroOffset[y]);
-	  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-      BSP_LCD_SetTextColor(LCD_COLOR_BLUE);
-      BSP_LCD_DisplayStringAtLine(7, (uint8_t *)buf);
+	  //sprintf(buf, "gyo[y]  %f",  gyroOffset[y]);
+	  //BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+      //BSP_LCD_SetTextColor(LCD_COLOR_BLUE);
+      //BSP_LCD_DisplayStringAtLine(7, (uint8_t *)buf);
 
-      sprintf(buf, "gyo[z]  %f",  gyroOffset[z]);
-      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-      BSP_LCD_SetTextColor(LCD_COLOR_BLUE);
-      BSP_LCD_DisplayStringAtLine(8, (uint8_t *)buf);
+      //sprintf(buf, "gyo[z]  %f",  gyroOffset[z]);
+      //BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+      //BSP_LCD_SetTextColor(LCD_COLOR_BLUE);
+      //BSP_LCD_DisplayStringAtLine(8, (uint8_t *)buf);
       //############ end display gyro offset #############################
 
 
@@ -422,6 +420,7 @@ int main(void)
 	 //############# end show loop speed #################################
 
 */
+
 
       //#################### end MPU Test ################################
 

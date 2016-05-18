@@ -165,6 +165,21 @@ void BSP_MPU_ReadRegs( uint8_t ReadAddr, uint8_t *ReadBuf, uint8_t Bytes )
    // HAL_Delay(50);
 }
 
+void BSP_MPU_WriteRegs( uint8_t WriteAddr, uint8_t *WriteBuf, uint8_t Bytes )
+{
+	uint8_t  i = 0;
+
+	MPU_IO_CSState(0);
+
+	MPU_IO_WriteByte(WriteAddr);
+	for(i=0; i<Bytes; i++)
+	{
+		MPU_IO_WriteByte(WriteBuf[i]);
+	}
+
+	MPU_IO_CSState(1);
+}
+
 void BSP_MPU_read_rot()
 {
     uint8_t response[6];
@@ -195,6 +210,7 @@ void BSP_MPU_read_acc()
     }
 }
 
+/*
 static float invSqrt(float x)
 {
 	float halfx = 0.5f * x;
@@ -203,8 +219,29 @@ static float invSqrt(float x)
 	i = 0x5f3759df - (i>>1);
 	y = *(float*)&i;
 	y = y * (1.5f - (halfx * y * y));
-	y = y * (1.5f - (halfx * y * y));
+	//y = y * (1.5f - (halfx * y * y));
 	return y;
+}
+*/
+
+static float invSqrt(float x)
+{
+    union
+    {
+        int i;
+        float f;
+    } u;
+
+    float x2;
+    const float threehalfs = 1.5F;
+
+    x2 = x * 0.5F;
+    u.f = x;
+    u.i = 0x5f3759df - ( u.i >> 1 ); // You are not supposed to understand this
+    u.f = u.f * ( threehalfs - ( x2 * u.f * u.f ) );
+    // u.f = u.f * ( threehalfs - ( x2 * u.f * u.f ) );
+
+    return u.f;
 }
 
 void BSP_MPU_updateIMU(float ax, float ay, float az, float gx, float gy, float gz, float dt)
@@ -308,8 +345,10 @@ void BSP_MPU_getEuler(float* roll, float* pitch, float* yaw)
 	*yaw =   atan2f(2*(q0*q3+q1*q2), 1-2*(q2*q2+q3*q3));
 }
 
+/*
 void BSP_MPU_GyroCalibration(void)
 {
+
     for(int i = 0; i<100; i++)
 	{
     	BSP_MPU_read_rot();
@@ -319,7 +358,6 @@ void BSP_MPU_GyroCalibration(void)
     	gyroOffset[y] -= gy[y];
     	gyroOffset[z] -= gy[z];
 
-
 		HAL_Delay(10);
 	}
 
@@ -328,4 +366,62 @@ void BSP_MPU_GyroCalibration(void)
     gyroOffset[z]/=100.0;
 
 }
+*/
+
+void BSP_MPU_GyroCalibration(void)
+{
+	uint8_t response[6], divider;
+	uint8_t i, j;
+	int16_t offset[3]={0};
+	uint8_t data[6]={0};
+
+	for (j=0; j<100; j++ )
+	{
+	    BSP_MPU_ReadRegs(MPUREG_GYRO_XOUT_H,response,6);
+	    for ( i=x; i<=z; i++)
+	    {
+	    	offset[i] -= ((int16_t)response[i*2]<<8)|response[i*2+1];
+	    }
+	    HAL_Delay(10);
+	}
+
+	divider = MPU_IO_WriteReadReg(MPUREG_GYRO_CONFIG|READ_FLAG, 0x00);
+	divider &= 0x18;
+
+	switch (divider)
+	{
+
+	    case BITS_FS_250DPS:
+	    	divider=8;
+	        break;
+	    case BITS_FS_500DPS:
+	        divider=4;
+	        break;
+	    case BITS_FS_1000DPS:
+	    	divider=2;
+	    	break;
+	    case BITS_FS_2000DPS:
+	        divider=1;
+	        break;
+	}
+
+	// offset register referred to 1000 DPS
+	offset[x] /= (int16_t)(50 * divider);
+    offset[y] /= (int16_t)(50 * divider);
+    offset[z] /= (int16_t)(50 * divider);
+
+    // swapped bytes
+    data[0] = (offset[x] >> 8) & 0xFF;
+    data[1] = offset[x] & 0xFF;
+    data[2] = (offset[y] >> 8) & 0xFF;
+    data[3] = offset[y] & 0xFF;
+    data[4] = (offset[z] >> 8) & 0xFF;
+    data[5] = offset[z] & 0xFF;
+
+    BSP_MPU_WriteRegs(MPUREG_XG_OFFS_USRH, (uint8_t*)&data[0], 2);
+    BSP_MPU_WriteRegs(MPUREG_YG_OFFS_USRH, (uint8_t*)&data[2], 2);
+    BSP_MPU_WriteRegs(MPUREG_ZG_OFFS_USRH, (uint8_t*)&data[4], 2);
+}
+
+
 
