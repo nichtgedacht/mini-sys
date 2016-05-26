@@ -51,6 +51,8 @@ extern RTC_HandleTypeDef hrtc;
 
 /* USER CODE END Private defines */
 
+extern void Error_Handler(void);
+
 void MX_RTC_Init(void);
 
 /* USER CODE BEGIN Prototypes */

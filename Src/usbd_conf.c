@@ -42,6 +42,7 @@
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
 PCD_HandleTypeDef hpcd_USB_FS;
+void Error_Handler(void);
 
 /* USER CODE BEGIN 0 */
 /* USER CODE END 0 */
@@ -57,9 +58,9 @@ void HAL_PCDEx_SetConnectionState(PCD_HandleTypeDef *hpcd, uint8_t state);
 *******************************************************************************/
 /* MSP Init */
 
-void HAL_PCD_MspInit(PCD_HandleTypeDef* hpcd)
+void HAL_PCD_MspInit(PCD_HandleTypeDef* pcdHandle)
 {
-  if(hpcd->Instance==USB)
+  if(pcdHandle->Instance==USB)
   {
   /* USER CODE BEGIN USB_MspInit 0 */
 
@@ -76,9 +77,9 @@ void HAL_PCD_MspInit(PCD_HandleTypeDef* hpcd)
   }
 }
 
-void HAL_PCD_MspDeInit(PCD_HandleTypeDef* hpcd)
+void HAL_PCD_MspDeInit(PCD_HandleTypeDef* pcdHandle)
 {
-  if(hpcd->Instance==USB)
+  if(pcdHandle->Instance==USB)
   {
   /* USER CODE BEGIN USB_MspDeInit 0 */
 
@@ -261,7 +262,10 @@ USBD_StatusTypeDef  USBD_LL_Init (USBD_HandleTypeDef *pdev)
   hpcd_USB_FS.Init.low_power_enable = DISABLE;
   hpcd_USB_FS.Init.lpm_enable = DISABLE;
   hpcd_USB_FS.Init.battery_charging_enable = DISABLE;
-  HAL_PCD_Init(&hpcd_USB_FS);
+  if (HAL_PCD_Init(&hpcd_USB_FS) != HAL_OK)
+  {
+    Error_Handler();
+  }
 
   HAL_PCDEx_PMAConfig((PCD_HandleTypeDef*)pdev->pData , 0x00 , PCD_SNG_BUF, 0x18);
   HAL_PCDEx_PMAConfig((PCD_HandleTypeDef*)pdev->pData , 0x80 , PCD_SNG_BUF, 0x58);

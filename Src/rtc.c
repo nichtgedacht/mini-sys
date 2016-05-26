@@ -52,27 +52,36 @@ void MX_RTC_Init(void)
   hrtc.Instance = RTC;
   hrtc.Init.AsynchPrediv = RTC_AUTO_1_SECOND;
   hrtc.Init.OutPut = RTC_OUTPUTSOURCE_NONE;
-  HAL_RTC_Init(&hrtc);
+  if (HAL_RTC_Init(&hrtc) != HAL_OK)
+  {
+    Error_Handler();
+  }
 
   sTime.Hours = 0x1;
   sTime.Minutes = 0x0;
   sTime.Seconds = 0x0;
 
-  HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BCD);
+  if (HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BCD) != HAL_OK)
+  {
+    Error_Handler();
+  }
 
   DateToUpdate.WeekDay = RTC_WEEKDAY_MONDAY;
   DateToUpdate.Month = RTC_MONTH_JANUARY;
   DateToUpdate.Date = 0x1;
   DateToUpdate.Year = 0x0;
 
-  HAL_RTC_SetDate(&hrtc, &DateToUpdate, RTC_FORMAT_BCD);
+  if (HAL_RTC_SetDate(&hrtc, &DateToUpdate, RTC_FORMAT_BCD) != HAL_OK)
+  {
+    Error_Handler();
+  }
 
 }
 
-void HAL_RTC_MspInit(RTC_HandleTypeDef* hrtc)
+void HAL_RTC_MspInit(RTC_HandleTypeDef* rtcHandle)
 {
 
-  if(hrtc->Instance==RTC)
+  if(rtcHandle->Instance==RTC)
   {
   /* USER CODE BEGIN RTC_MspInit 0 */
 
@@ -88,10 +97,10 @@ void HAL_RTC_MspInit(RTC_HandleTypeDef* hrtc)
   }
 }
 
-void HAL_RTC_MspDeInit(RTC_HandleTypeDef* hrtc)
+void HAL_RTC_MspDeInit(RTC_HandleTypeDef* rtcHandle)
 {
 
-  if(hrtc->Instance==RTC)
+  if(rtcHandle->Instance==RTC)
   {
   /* USER CODE BEGIN RTC_MspDeInit 0 */
 

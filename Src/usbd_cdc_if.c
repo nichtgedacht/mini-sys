@@ -87,10 +87,8 @@ uint8_t UserRxBufferFS[APP_RX_DATA_SIZE];
 /* Send Data over USB CDC are stored in this buffer       */
 uint8_t UserTxBufferFS[APP_TX_DATA_SIZE];
 
-/* USB handler declaration */
-/* Handle for USB Full Speed IP */
-  USBD_HandleTypeDef  *hUsbDevice_0;
 /* USER CODE BEGIN PRIVATE_VARIABLES */
+USBD_HandleTypeDef  *hUsbDevice_0;
 /* USER CODE END PRIVATE_VARIABLES */
 
 /**
@@ -139,9 +137,10 @@ USBD_CDC_ItfTypeDef USBD_Interface_fops_FS =
   * @retval Result of the operation: USBD_OK if all operations are OK else USBD_FAIL
   */
 static int8_t CDC_Init_FS(void)
-{
-  hUsbDevice_0 = &hUsbDeviceFS;
+{ 
   /* USER CODE BEGIN 3 */ 
+  hUsbDevice_0 = &hUsbDeviceFS;
+
   /* Set Application Buffers */
   USBD_CDC_SetTxBuffer(hUsbDevice_0, UserTxBufferFS, 0);
   USBD_CDC_SetRxBuffer(hUsbDevice_0, UserRxBufferFS);

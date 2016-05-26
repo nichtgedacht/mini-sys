@@ -1,6 +1,6 @@
 Configuration	mini-sys
-STM32CubeMX 	4.14.0
-Date	05/02/2016
+STM32CubeMX 	4.15.0
+Date	05/26/2016
 MCU	STM32F103C8Tx
 
 
@@ -16,9 +16,11 @@ RTC	No RTC Output	RTC_No_RTC_Output	VP_RTC_No_RTC_Output
 SPI2	Full-Duplex Master	SPI2_MISO	PB14
 SPI2	Full-Duplex Master	SPI2_MOSI	PB15
 SPI2	Full-Duplex Master	SPI2_SCK	PB13
-SYS	Serial-Wire	SYS_JTCK-SWCLK	PA14
-SYS	Serial-Wire	SYS_JTMS-SWDIO	PA13
+SYS	Serial Wire	SYS_JTCK-SWCLK	PA14
+SYS	Serial Wire	SYS_JTMS-SWDIO	PA13
 SYS	TIM1	SYS_VS_tim1	VP_SYS_VS_tim1
+USART1	Asynchronous	USART1_RX	PA10
+USART1	Asynchronous	USART1_TX	PA9
 USB	Device (FS)	USB_DM	PA11
 USB	Device (FS)	USB_DP	PA12
 
@@ -36,6 +38,8 @@ Pin Nb	PINs	FUNCTIONs	LABELs
 26	PB13	SPI2_SCK	
 27	PB14	SPI2_MISO	
 28	PB15	SPI2_MOSI	
+30	PA9	USART1_TX	
+31	PA10	USART1_RX	
 32	PA11	USB_DM	
 33	PA12	USB_DP	
 34	PA13	SYS_JTMS-SWDIO	
@@ -53,9 +57,9 @@ SOFTWARE PROJECT
 
 Project Settings : 
 Project Name : mini-sys
-Project Folder : /array_data01/STM32-16/mini-sys
+Project Folder : /array_data01/STM32-18/mini-sys
 Toolchain / IDE : SW4STM32
-Firmware Package Name and Version : STM32Cube FW_F1 V1.3.1
+Firmware Package Name and Version : STM32Cube FW_F1 V1.4.0
 
 
 Code Generation Settings : 
