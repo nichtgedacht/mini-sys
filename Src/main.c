@@ -36,6 +36,7 @@
 #include "fatfs.h"
 #include "rtc.h"
 #include "spi.h"
+#include "tim.h"
 #include "usart.h"
 #include "usb_device.h"
 #include "gpio.h"
@@ -85,13 +86,6 @@ float roll, pitch, yaw;
 float bla;
 int xp, yp;
 float vx=0.0f, vy=0.0f;
-
-
-
-//volatile uint8_t uart_data[26];
-//volatile uint8_t HAL_UART_ERROR=0;
-//volatile uint8_t HAL_UART_RECEIVED=0;
-//volatile uint16_t channels[16];
 HAL_StatusTypeDef hal_res;
 //uint32_t alloc;
 
@@ -133,11 +127,11 @@ int main(void)
   MX_ADC2_Init();
   MX_USB_DEVICE_Init();
   MX_USART1_UART_Init();
+  MX_TIM2_Init();
 
   /* USER CODE BEGIN 2 */
 
   MX_FATFS_Init();
-  //MX_USB_DEVICE_Init();
   MX_SPI2_Init();
 
   //############### MPU Test init ########################################
@@ -249,6 +243,105 @@ int main(void)
       //###################### end ADC test ##############################
 
 
+      //############ s-bus test ##########################################
+      //########### set rotation to 0 or 2 above #########################
+      if ( SBUS_RECEIVED == 1 )
+      {
+
+          SBUS_RECEIVED = 0;
+
+      	  // show channels 1-12
+      	  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+      	  BSP_LCD_FillRect(0, 0 * 12, BSP_LCD_GetXSize() - 50, 12);
+      	  sprintf(buf, "ch_1: %d", channels[0]);
+      	  BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+      	  BSP_LCD_DisplayStringAtLine(0, (uint8_t *)buf);
+
+      	  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+      	  BSP_LCD_FillRect(0, 1 * 12, BSP_LCD_GetXSize() - 50, 12);
+      	  sprintf(buf, "ch_2: %d", channels[1]);
+      	  BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+      	  BSP_LCD_DisplayStringAtLine(1, (uint8_t *)buf);
+
+      	  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+      	  BSP_LCD_FillRect(0, 2 * 12, BSP_LCD_GetXSize() - 50, 12);
+      	  sprintf(buf, "ch_3: %d", channels[2]);
+      	  BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+      	  BSP_LCD_DisplayStringAtLine(2, (uint8_t *)buf);
+
+      	  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+      	  BSP_LCD_FillRect(0, 3 * 12, BSP_LCD_GetXSize() - 50, 12);
+      	  sprintf(buf, "ch_4: %d", channels[3]);
+      	  BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+      	  BSP_LCD_DisplayStringAtLine(3, (uint8_t *)buf);
+
+      	  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+      	  BSP_LCD_FillRect(0, 4 * 12, BSP_LCD_GetXSize() - 50, 12);
+      	  sprintf(buf, "ch_5: %d", channels[4]);
+      	  BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+      	  BSP_LCD_DisplayStringAtLine(4, (uint8_t *)buf);
+
+      	  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+      	  BSP_LCD_FillRect(0, 5 * 12, BSP_LCD_GetXSize() - 50, 12);
+      	  sprintf(buf, "ch_6: %d", channels[5]);
+      	  BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+      	  BSP_LCD_DisplayStringAtLine(5, (uint8_t *)buf);
+
+      	  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+      	  BSP_LCD_FillRect(0, 6 * 12, BSP_LCD_GetXSize() - 50, 12);
+      	  sprintf(buf, "ch_7: %d", channels[6]);
+      	  BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+      	  BSP_LCD_DisplayStringAtLine(6, (uint8_t *)buf);
+
+      	  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+      	  BSP_LCD_FillRect(0, 7 * 12, BSP_LCD_GetXSize() - 50, 12);
+      	  sprintf(buf, "ch_8: %d", channels[7]);
+      	  BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+      	  BSP_LCD_DisplayStringAtLine(7, (uint8_t *)buf);
+
+      	  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+      	  BSP_LCD_FillRect(0, 8 * 12, BSP_LCD_GetXSize() - 50, 12);
+      	  sprintf(buf, "ch_9: %d", channels[8]);
+      	  BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+      	  BSP_LCD_DisplayStringAtLine(8, (uint8_t *)buf);
+
+      	  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+      	  BSP_LCD_FillRect(0, 9 * 12, BSP_LCD_GetXSize() - 50, 12);
+      	  sprintf(buf, "ch_10: %d", channels[9]);
+      	  BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+      	  BSP_LCD_DisplayStringAtLine(9, (uint8_t *)buf);
+
+      	  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+      	  BSP_LCD_FillRect(0, 10 * 12, BSP_LCD_GetXSize() - 50, 12);
+      	  sprintf(buf, "ch_11: %d", channels[10]);
+      	  BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+      	  BSP_LCD_DisplayStringAtLine(10, (uint8_t *)buf);
+
+   	      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+   	      BSP_LCD_FillRect(0, 11 * 12, BSP_LCD_GetXSize() - 50, 12);
+   		  sprintf(buf, "ch_12: %d", channels[11]);
+   		  BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+   		  BSP_LCD_DisplayStringAtLine(11, (uint8_t *)buf);
+
+   	      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+   	      BSP_LCD_FillRect(0, 12 * 12, BSP_LCD_GetXSize() - 50, 12);
+   		  sprintf(buf, "ERROR %d", HAL_UART_ERROR );
+   		  BSP_LCD_SetTextColor(LCD_COLOR_RED);
+   		  BSP_LCD_DisplayStringAtLine(12, (uint8_t *)buf);
+
+   	  }
+
+      if ( HAL_UART_ERROR != 0 )
+      {
+          HAL_UART_ERROR = 0;
+      }
+
+      HAL_Delay(10);
+
+      //############ end s-bus test ######################################
+
+
+
       //############### MPU Test #########################################
 
       BSP_LCD_SetFont(&Font12);
@@ -271,6 +364,9 @@ int main(void)
 
 	  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
 	  BSP_LCD_DrawCircle(xp, yp , 5);
+
+      BSP_LCD_SetTextColor(LCD_COLOR_RED);
+      BSP_LCD_DrawRect(74, 58, 13, 13);
 
 	  vx += sinf(pitch)*10;
 	  vy += sinf(roll)*10;
@@ -297,6 +393,16 @@ int main(void)
 	  BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
 	  BSP_LCD_DrawCircle(xp, yp , 5);
 
+      if ( xp == 80 && yp == 64 )
+      {
+
+          res = BSP_SD_Init();
+          if ( res == BSP_SD_OK )
+          {
+              TFT_DisplayImages(0, 0, "PICT2.BMP");
+          }
+      }
+
 	  sprintf(buf, "%3.3f,%3.3f,%3.3f\n", yaw, pitch, roll);
  	  CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
 
@@ -304,104 +410,6 @@ int main(void)
 
       //############ end moving circle by gravity ########################
 */
-
-      //############ s-bus test ##########################################
-      //########### set rotation to 0 or 2 above #########################
-	  if ( SBUS_RECEIVED == 1 )
-	  {
-
-		  SBUS_RECEIVED = 0;
-
-		  // show channels 1-12
-	      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-	      BSP_LCD_FillRect(0, 0 * 12, BSP_LCD_GetXSize() - 50, 12);
-		  sprintf(buf, "ch_1: %d", channels[0]);
-		  BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-		  BSP_LCD_DisplayStringAtLine(0, (uint8_t *)buf);
-
-	      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-	      BSP_LCD_FillRect(0, 1 * 12, BSP_LCD_GetXSize() - 50, 12);
-		  sprintf(buf, "ch_2: %d", channels[1]);
-		  BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-		  BSP_LCD_DisplayStringAtLine(1, (uint8_t *)buf);
-
-	      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-	      BSP_LCD_FillRect(0, 2 * 12, BSP_LCD_GetXSize() - 50, 12);
-		  sprintf(buf, "ch_3: %d", channels[2]);
-		  BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-		  BSP_LCD_DisplayStringAtLine(2, (uint8_t *)buf);
-
-	      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-	      BSP_LCD_FillRect(0, 3 * 12, BSP_LCD_GetXSize() - 50, 12);
-		  sprintf(buf, "ch_4: %d", channels[3]);
-		  BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-		  BSP_LCD_DisplayStringAtLine(3, (uint8_t *)buf);
-
-	      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-	      BSP_LCD_FillRect(0, 4 * 12, BSP_LCD_GetXSize() - 50, 12);
-		  sprintf(buf, "ch_5: %d", channels[4]);
-		  BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-		  BSP_LCD_DisplayStringAtLine(4, (uint8_t *)buf);
-
-	      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-	      BSP_LCD_FillRect(0, 5 * 12, BSP_LCD_GetXSize() - 50, 12);
-		  sprintf(buf, "ch_6: %d", channels[5]);
-		  BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-		  BSP_LCD_DisplayStringAtLine(5, (uint8_t *)buf);
-
-	      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-	      BSP_LCD_FillRect(0, 6 * 12, BSP_LCD_GetXSize() - 50, 12);
-		  sprintf(buf, "ch_7: %d", channels[6]);
-		  BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-		  BSP_LCD_DisplayStringAtLine(6, (uint8_t *)buf);
-
-	      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-	      BSP_LCD_FillRect(0, 7 * 12, BSP_LCD_GetXSize() - 50, 12);
-		  sprintf(buf, "ch_8: %d", channels[7]);
-		  BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-		  BSP_LCD_DisplayStringAtLine(7, (uint8_t *)buf);
-
-	      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-	      BSP_LCD_FillRect(0, 8 * 12, BSP_LCD_GetXSize() - 50, 12);
-		  sprintf(buf, "ch_9: %d", channels[8]);
-		  BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-		  BSP_LCD_DisplayStringAtLine(8, (uint8_t *)buf);
-
-	      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-	      BSP_LCD_FillRect(0, 9 * 12, BSP_LCD_GetXSize() - 50, 12);
-		  sprintf(buf, "ch_10: %d", channels[9]);
-		  BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-		  BSP_LCD_DisplayStringAtLine(9, (uint8_t *)buf);
-
-	      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-	      BSP_LCD_FillRect(0, 10 * 12, BSP_LCD_GetXSize() - 50, 12);
-		  sprintf(buf, "ch_11: %d", channels[10]);
-		  BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-		  BSP_LCD_DisplayStringAtLine(10, (uint8_t *)buf);
-
-	      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-	      BSP_LCD_FillRect(0, 11 * 12, BSP_LCD_GetXSize() - 50, 12);
-		  sprintf(buf, "ch_12: %d", channels[11]);
-		  BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-		  BSP_LCD_DisplayStringAtLine(11, (uint8_t *)buf);
-
-	      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-	      BSP_LCD_FillRect(0, 12 * 12, BSP_LCD_GetXSize() - 50, 12);
-		  sprintf(buf, "ERROR %d", HAL_UART_ERROR );
-		  BSP_LCD_SetTextColor(LCD_COLOR_RED);
-		  BSP_LCD_DisplayStringAtLine(12, (uint8_t *)buf);
-
-	  }
-
-	  if ( HAL_UART_ERROR != 0 )
-	  {
-		  HAL_UART_ERROR = 0;
-	  }
-
-	  HAL_Delay(10);
-
-	  //############ end s-bus test ######################################
-
 
 /*
       //############ show Euler angles and quaternion ####################
@@ -457,7 +465,6 @@ int main(void)
 
 */
 
-
 /*
       //############ show values from sensors ############################
 
@@ -507,26 +514,6 @@ int main(void)
       //sprintf(buf, "mpu_res: %d", mpu_res);
       //BSP_LCD_DisplayStringAtLine(4, (uint8_t *)buf);
 	  //############ end IMU SPI test ####################################
-
-
-
-      //############ display gyro offset #################################
-	  //sprintf(buf, "gyo[x]  %f",  gyroOffset[x]);
-	  //BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-	  //BSP_LCD_SetTextColor(LCD_COLOR_BLUE);
-	  //BSP_LCD_DisplayStringAtLine(6, (uint8_t *)buf);
-
-	  //sprintf(buf, "gyo[y]  %f",  gyroOffset[y]);
-	  //BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-      //BSP_LCD_SetTextColor(LCD_COLOR_BLUE);
-      //BSP_LCD_DisplayStringAtLine(7, (uint8_t *)buf);
-
-      //sprintf(buf, "gyo[z]  %f",  gyroOffset[z]);
-      //BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-      //BSP_LCD_SetTextColor(LCD_COLOR_BLUE);
-      //BSP_LCD_DisplayStringAtLine(8, (uint8_t *)buf);
-      //############ end display gyro offset #############################
-
 
       //############# show loop speed #####################################
 	  dtx = dt + 1;

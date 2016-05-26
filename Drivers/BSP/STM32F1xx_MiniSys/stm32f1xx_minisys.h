@@ -141,8 +141,8 @@
    */
 #define MPU_CS_PIN                                 GPIO_PIN_3
 #define MPU_CS_GPIO_PORT                           GPIOB
-#define MPU_CS_GPIO_CLK_ENABLE()                   __HAL_RCC_GPIOB_CLK_ENABLE()
-#define MPU_CS_GPIO_CLK_DISABLE()                  __HAL_RCC_GPIOB_CLK_DISABLE()
+#define MPU_CS_GPIO_CLK_ENABLE()                   __HAL_RCC_GPIOA_CLK_ENABLE()
+#define MPU_CS_GPIO_CLK_DISABLE()                  __HAL_RCC_GPIOA_CLK_DISABLE()
 
  /**
    * @brief  MPU Control Lines management
