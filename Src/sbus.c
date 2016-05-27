@@ -15,6 +15,7 @@ volatile uint16_t channels[16]={0};
   */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
+    uint16_t i;
 
 	// stolen from https://github.com/zendes/SBUS
 	channels[0]  = ((uart_data[1]    |uart_data[2]<<8)                    & 0x07FF);
@@ -34,12 +35,23 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	channels[14] = ((uart_data[20]>>2|uart_data[21]<<6)                   & 0x07FF);
 	channels[15] = ((uart_data[21]>>5|uart_data[22]<<3)                   & 0x07FF);
 
-	HAL_UART_Receive_IT(&huart1, (uint8_t*)uart_data, 25);
-
 	if(uart_data[0] == 0x0F && uart_data[24] == 0x00)
 	{
 		SBUS_RECEIVED = 1;
 	}
+	else
+	{
+		// if TX is started first the first interrupt read could hit
+		// any point within the s-bus frame
+		// delay start of next read until we hit the gap between s-bus frames
+		// and get in sync
+		// HAL_Delay do not work here
+		for(i=0; i<65535; i++)
+		{
+			HAL_GPIO_TogglePin(GPIOB,  GPIO_PIN_1);
+		}
+	}
+	HAL_UART_Receive_IT(&huart1, (uint8_t*)uart_data, 25);
 
 }
 

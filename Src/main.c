@@ -151,7 +151,7 @@ int main(void)
   xp = BSP_LCD_GetXSize()/2;
   yp = BSP_LCD_GetYSize()/2;
 
-  // enable USB on marple mine clone or use reset as default state
+  // enable USB on maple mine clone or use reset as default state
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET);
 
   //############ init SD-card, signal errors by LED ######################
@@ -325,9 +325,9 @@ int main(void)
 
    	      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
    	      BSP_LCD_FillRect(0, 12 * 12, BSP_LCD_GetXSize() - 50, 12);
-   		  sprintf(buf, "ERROR %d", HAL_UART_ERROR );
-   		  BSP_LCD_SetTextColor(LCD_COLOR_RED);
-   		  BSP_LCD_DisplayStringAtLine(12, (uint8_t *)buf);
+   	  	  sprintf(buf, "ERROR: %d", HAL_UART_ERROR );
+   	  	  BSP_LCD_SetTextColor(LCD_COLOR_RED);
+   	  	  BSP_LCD_DisplayStringAtLine(12, (uint8_t *)buf);
 
    	  }
 
@@ -336,7 +336,7 @@ int main(void)
           HAL_UART_ERROR = 0;
       }
 
-      HAL_Delay(10);
+     // HAL_Delay(10);
 
       //############ end s-bus test ######################################
 
