@@ -51,6 +51,7 @@
 #include "mpu9250.h"
 #include "math.h"
 #include "sbus.h"
+#include "servo.h"
 
 /* USER CODE END Includes */
 
@@ -70,7 +71,7 @@ uint8_t str[20];
 uint32_t size = 0;
 uint32_t nbline;
 uint8_t *ptr = NULL;
-float volt1, volt2;
+float volt1, volt2 = 0.0f;
 uint32_t free_ram;
 uint8_t red=1;
 uint32_t width;
@@ -87,6 +88,8 @@ float bla;
 int xp, yp;
 float vx=0.0f, vy=0.0f;
 HAL_StatusTypeDef hal_res;
+//volatile uint32_t   aADCxConvertedValues[3];
+//volatile uint8_t         ubSequenceCompleted = RESET;
 //uint32_t alloc;
 
 /* USER CODE END PV */
@@ -124,7 +127,6 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_ADC1_Init();
-  MX_ADC2_Init();
   MX_USB_DEVICE_Init();
   MX_USART1_UART_Init();
   MX_TIM2_Init();
@@ -133,6 +135,35 @@ int main(void)
 
   MX_FATFS_Init();
   MX_SPI2_Init();
+
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
+
+  // useless because overwritten in HAL_TIM_PWM_PulseFinishedCallback
+  // preset channels instead
+  //TIM2->CCR1 = 1500;
+  //TIM2->CCR2 = 1500;
+  //TIM2->CCR3 = 1500;
+  //TIM2->CCR4 = 1500;
+
+  // preset channels default values now in sbus.c
+  //channels[0]=1000;
+  //channels[1]=1000;
+  //channels[2]=1000;
+  //channels[3]=1000;
+
+  //needed otherwise no capture interrupt
+  //HAL_TIM_PWM_Start_IT wich calls this to is not apropriate in our case
+  __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_CC1);
+  __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_CC2);
+  __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_CC3);
+  __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_CC4);
+
+  // Request first 25 bytes s-bus frame from uart, uart_data becomes filled per interrupts
+  // Get callback if ready Callback restarts request
+  HAL_UART_Receive_IT(&huart1, (uint8_t*)uart_data, 25);
 
   //############### MPU Test init ########################################
   BSP_MPU_Init(99, 0x06, 0x06);
@@ -160,11 +191,11 @@ int main(void)
   if ( res != BSP_SD_OK)
   {
       for (counter = 0; counter < 6; counter++)
-          {
-              HAL_GPIO_TogglePin(GPIOB,  GPIO_PIN_1);
-              HAL_GPIO_TogglePin(GPIOC,  GPIO_PIN_13);
-              HAL_Delay(100);
-          }
+      {
+          HAL_GPIO_TogglePin(GPIOB,  GPIO_PIN_1);
+          HAL_GPIO_TogglePin(GPIOC,  GPIO_PIN_13);
+          HAL_Delay(100);
+      }
   }
   else
   {
@@ -175,18 +206,18 @@ int main(void)
   if ( fres != FR_OK)
   {
       for (counter = 0; counter < 6; counter++)
-          {
-              HAL_GPIO_TogglePin(GPIOB,  GPIO_PIN_1);
-              HAL_GPIO_TogglePin(GPIOC,  GPIO_PIN_13);
-              HAL_Delay(100);
-          }
+      {
+          HAL_GPIO_TogglePin(GPIOB,  GPIO_PIN_1);
+          HAL_GPIO_TogglePin(GPIOC,  GPIO_PIN_13);
+          HAL_Delay(100);
+      }
   }
   else
   {
-          for (counter = 0; counter < MAX_BMP_FILES; counter++)
-          {
-              pDirectoryFiles[counter] = malloc(11);
-          }
+      for (counter = 0; counter < MAX_BMP_FILES; counter++)
+      {
+          pDirectoryFiles[counter] = malloc(11);
+      }
 
   }
   //############ end init SD-card, signal errors by LED ##################
@@ -198,9 +229,18 @@ int main(void)
       TFT_DisplayImages(0, 0, "PICT1.BMP");
   }
 
-  // Request 25 bytes frame from uart, uart_data becomes filled per interrupts
-  // Get callback if ready
-  HAL_UART_Receive_IT(&huart1, (uint8_t*)uart_data, 25);
+  /*
+  HAL_ADCEx_Calibration_Start(&hadc1);
+  if ( HAL_ADC_Start_DMA(&hadc1, (uint32_t *)aADCxConvertedValues, 3) != HAL_OK)
+  {
+      for (counter = 0; counter < 6; counter++)
+      {
+          HAL_GPIO_TogglePin(GPIOB,  GPIO_PIN_1);
+          HAL_GPIO_TogglePin(GPIOC,  GPIO_PIN_13);
+          HAL_Delay(500);
+      }
+  }
+  */
 
   /* USER CODE END 2 */
 
@@ -218,6 +258,27 @@ int main(void)
 
       //################### ADC test #####################################
 
+
+      /*
+      if (ubSequenceCompleted == SET) {
+
+
+    	  volt1 =  (3.3 * aADCxConvertedValues[2]) / 4090;
+    	//  volt2 =  (3.3 * aADCxConvertedValues[3]) / 4090;
+    	  volt2 += 0.01f;
+
+    	//  sprintf(buf, "%d\n", aADCxConvertedValues[2]);
+
+    	  sprintf(buf, "V2: %3.3f\n", volt2 );
+
+    	  ubSequenceCompleted = RESET;
+
+    	  //HAL_ADC_Start(&hadc1);
+    	  HAL_ADC_Start_DMA(&hadc1, (uint32_t *)aADCxConvertedValues, 3);
+
+      }
+      */
+
       HAL_ADCEx_Calibration_Start(&hadc1);
       if ( HAL_ADC_Start(&hadc1) == HAL_OK )
       {
@@ -229,6 +290,11 @@ int main(void)
           HAL_ADC_Stop(&hadc1);
       }
 
+	  sprintf(buf, "V1: %3.3f\n", volt1 );
+	  CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
+	  //usage:  "cat /dev/ttyACM0"
+
+      /*
       HAL_ADCEx_Calibration_Start(&hadc2);
       if ( HAL_ADC_Start(&hadc2) == HAL_OK )
       {
@@ -239,23 +305,27 @@ int main(void)
 
           HAL_ADC_Stop(&hadc2);
       }
-
+      */
       //###################### end ADC test ##############################
 
 
       //############ s-bus test ##########################################
+
+
       //########### set rotation to 0 or 2 above #########################
       if ( SBUS_RECEIVED == 1 )
       {
 
           SBUS_RECEIVED = 0;
 
+/*
       	  // show channels 1-12
       	  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
       	  BSP_LCD_FillRect(0, 0 * 12, BSP_LCD_GetXSize() - 50, 12);
       	  sprintf(buf, "ch_1: %d", channels[0]);
       	  BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
       	  BSP_LCD_DisplayStringAtLine(0, (uint8_t *)buf);
+
 
       	  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
       	  BSP_LCD_FillRect(0, 1 * 12, BSP_LCD_GetXSize() - 50, 12);
@@ -325,9 +395,16 @@ int main(void)
 
    	      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
    	      BSP_LCD_FillRect(0, 12 * 12, BSP_LCD_GetXSize() - 50, 12);
-   	  	  sprintf(buf, "ERROR: %d", HAL_UART_ERROR );
+   	  	  sprintf(buf, "ERROR: %d", SBUS_ERROR );
    	  	  BSP_LCD_SetTextColor(LCD_COLOR_RED);
    	  	  BSP_LCD_DisplayStringAtLine(12, (uint8_t *)buf);
+
+*/
+          //servos[0] = channels[0]/2 + 1000; //normal
+          servos[0] = 2000 - channels[0]/2;   //reverse
+          servos[1] = channels[1]/2 + 1000;
+          servos[2] = channels[2]/2 + 1000;
+          servos[3] = channels[3]/2 + 1000;
 
    	  }
 
@@ -341,7 +418,7 @@ int main(void)
       //############ end s-bus test ######################################
 
 
-
+/*
       //############### MPU Test #########################################
 
       BSP_LCD_SetFont(&Font12);
@@ -358,8 +435,8 @@ int main(void)
 
       BSP_MPU_getEuler(&roll, &pitch, &yaw);
 
-/*
-      //########### moving circle by gravity #############################
+
+      //########### moving circle by gravity, little game ################
       //########### set rotation above according to IMU orientation ######
 
 	  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
@@ -368,8 +445,8 @@ int main(void)
       BSP_LCD_SetTextColor(LCD_COLOR_RED);
       BSP_LCD_DrawRect(74, 58, 13, 13);
 
-	  vx += sinf(pitch)*10;
-	  vy += sinf(roll)*10;
+	  vx += sinf(pitch)*10f;
+	  vy += sinf(roll)*10f;
 	  xp += roundf(vx);
 	  yp += roundf(vy);
 
@@ -395,7 +472,7 @@ int main(void)
 
       if ( xp == 80 && yp == 64 )
       {
-
+          //load picture if successful
           res = BSP_SD_Init();
           if ( res == BSP_SD_OK )
           {
@@ -403,7 +480,10 @@ int main(void)
           }
       }
 
-	  sprintf(buf, "%3.3f,%3.3f,%3.3f\n", yaw, pitch, roll);
+
+	  // sprintf(buf, "%3.3f,%3.3f,%3.3f\n", yaw, pitch, roll);
+      // sprintf(buf, "dt: %ld\n", dt );
+
  	  CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
 
 	  HAL_Delay(10);
@@ -733,6 +813,23 @@ void SystemClock_Config(void)
 
 /* USER CODE BEGIN 4 */
 
+/*
+void  HAL_ADC_ErrorCallback(ADC_HandleTypeDef *AdcHandle)
+{
+    for (counter = 0; counter < 6; counter++)
+    {
+        HAL_GPIO_TogglePin(GPIOB,  GPIO_PIN_1);
+        HAL_GPIO_TogglePin(GPIOC,  GPIO_PIN_13);
+        HAL_Delay(50);
+    }
+}
+
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *AdcHandle)
+{
+  //Report to main program that ADC sequencer has reached its end
+  ubSequenceCompleted = SET;
+}
+*/
 
 static uint8_t TFT_DisplayImages(uint8_t x, uint16_t y, const char* fname)
 {

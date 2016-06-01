@@ -4,11 +4,12 @@
 volatile uint8_t uart_data[26]={0};
 volatile uint8_t HAL_UART_ERROR=0;
 volatile uint8_t SBUS_RECEIVED=0;
-volatile uint16_t channels[16]={0};
+volatile uint16_t channels[16]={1000};
+volatile uint16_t SBUS_ERROR=0;
 
 
 /**
-  * @brief  Rx Transfer completed callbacks.
+  * @brief  Rx frame transfer completed callbacks, get channel values
   * @param  huart: Pointer to a UART_HandleTypeDef structure that contains
   *                the configuration information for the specified UART module.
   * @retval None
@@ -50,6 +51,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		{
 			HAL_GPIO_TogglePin(GPIOB,  GPIO_PIN_1);
 		}
+		SBUS_ERROR++;
+
 	}
 	HAL_UART_Receive_IT(&huart1, (uint8_t*)uart_data, 25);
 
