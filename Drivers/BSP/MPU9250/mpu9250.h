@@ -15,7 +15,6 @@ float acc_divider;
 float gyro_divider;
 float gy[3];
 float ac[3];
-//float gyroOffset[3];
 
 extern volatile float twoKp;                    // 2 * proportional gain (Kp)
 extern volatile float twoKi;                    // 2 * integral gain (Ki)

@@ -1,5 +1,4 @@
 #include "servo.h"
-#include "tim.h"
 
 volatile uint16_t servos[4]={1500}; //servo pulse width 1000 to 2000 us
 

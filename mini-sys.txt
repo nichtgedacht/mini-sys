@@ -1,6 +1,6 @@
 Configuration	mini-sys
 STM32CubeMX 	4.15.0
-Date	06/01/2016
+Date	06/03/2016
 MCU	STM32F103C8Tx
 
 
@@ -17,7 +17,7 @@ SPI2	Full-Duplex Master	SPI2_MOSI	PB15
 SPI2	Full-Duplex Master	SPI2_SCK	PB13
 SYS	Serial Wire	SYS_JTCK-SWCLK	PA14
 SYS	Serial Wire	SYS_JTMS-SWDIO	PA13
-SYS	TIM1	SYS_VS_tim1	VP_SYS_VS_tim1
+SYS	SysTick	SYS_VS_Systick	VP_SYS_VS_Systick
 TIM2	PWM Generation CH1	TIM2_CH1	PA0-WKUP
 TIM2	PWM Generation CH2	TIM2_CH2	PA1
 TIM2	PWM Generation CH3	TIM2_CH3	PA2
@@ -63,7 +63,7 @@ SOFTWARE PROJECT
 
 Project Settings : 
 Project Name : mini-sys
-Project Folder : /array_data01/STM32-19/mini-sys
+Project Folder : /array_data01/STM32-20/mini-sys
 Toolchain / IDE : SW4STM32
 Firmware Package Name and Version : STM32Cube FW_F1 V1.4.0
 

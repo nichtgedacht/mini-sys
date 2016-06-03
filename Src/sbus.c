@@ -1,4 +1,3 @@
-#include "usart.h"
 #include "sbus.h"
 
 volatile uint8_t uart_data[26]={0};

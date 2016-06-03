@@ -88,6 +88,7 @@ float bla;
 int xp, yp;
 float vx=0.0f, vy=0.0f;
 HAL_StatusTypeDef hal_res;
+volatile uint8_t PeriodElapsed=0;
 //volatile uint32_t   aADCxConvertedValues[3];
 //volatile uint8_t         ubSequenceCompleted = RESET;
 //uint32_t alloc;
@@ -136,31 +137,6 @@ int main(void)
   MX_FATFS_Init();
   MX_SPI2_Init();
 
-  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
-  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
-  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
-  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
-
-  // useless because overwritten in HAL_TIM_PWM_PulseFinishedCallback
-  // preset channels instead
-  //TIM2->CCR1 = 1500;
-  //TIM2->CCR2 = 1500;
-  //TIM2->CCR3 = 1500;
-  //TIM2->CCR4 = 1500;
-
-  // preset channels default values now in sbus.c
-  //channels[0]=1000;
-  //channels[1]=1000;
-  //channels[2]=1000;
-  //channels[3]=1000;
-
-  //needed otherwise no capture interrupt
-  //HAL_TIM_PWM_Start_IT wich calls this to is not apropriate in our case
-  __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_CC1);
-  __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_CC2);
-  __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_CC3);
-  __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_CC4);
-
   // Request first 25 bytes s-bus frame from uart, uart_data becomes filled per interrupts
   // Get callback if ready Callback restarts request
   HAL_UART_Receive_IT(&huart1, (uint8_t*)uart_data, 25);
@@ -175,11 +151,19 @@ int main(void)
   BSP_LCD_SetTextColor(LCD_COLOR_WHITE);
   BSP_LCD_SetBackColor(LCD_COLOR_BLUE);
   BSP_LCD_SetFont(&Font20);
-  BSP_LCD_SetRotation(0);
+  BSP_LCD_SetRotation(3);
   color=LCD_COLOR_WHITE;
 
+  HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_2);
+  HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_3);
+  HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_4);
+
+  //not to be enabled until BSP_MPU_GyroCalibration
+  __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_UPDATE);
+
   //for moving circle by gravity start position
-  xp = BSP_LCD_GetXSize()/2;
+  xp = BSP_LCD_GetXSize()/2 + 1;
   yp = BSP_LCD_GetYSize()/2;
 
   // enable USB on maple mine clone or use reset as default state
@@ -223,11 +207,11 @@ int main(void)
   //############ end init SD-card, signal errors by LED ##################
 
 
-  res = BSP_SD_Init();
-  if ( res == BSP_SD_OK )
-  {
-      TFT_DisplayImages(0, 0, "PICT1.BMP");
-  }
+  //res = BSP_SD_Init();
+  //if ( res == BSP_SD_OK )
+  //{
+  //    TFT_DisplayImages(0, 0, "PICT1.BMP");
+  //}
 
   /*
   HAL_ADCEx_Calibration_Start(&hadc1);
@@ -257,7 +241,6 @@ int main(void)
 
 
       //################### ADC test #####################################
-
 
       /*
       if (ubSequenceCompleted == SET) {
@@ -290,8 +273,8 @@ int main(void)
           HAL_ADC_Stop(&hadc1);
       }
 
-	  sprintf(buf, "V1: %3.3f\n", volt1 );
-	  CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
+	  //sprintf(buf, "V1: %3.3f\n", volt1 );
+	  //CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
 	  //usage:  "cat /dev/ttyACM0"
 
       /*
@@ -413,83 +396,79 @@ int main(void)
           HAL_UART_ERROR = 0;
       }
 
-     // HAL_Delay(10);
-
       //############ end s-bus test ######################################
 
-
-/*
       //############### MPU Test #########################################
 
-      BSP_LCD_SetFont(&Font12);
-      BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
+      if ( PeriodElapsed == 1)
+      {
+    	  PeriodElapsed = 0;
 
-      BSP_MPU_read_rot();
-      BSP_MPU_read_acc();
+          tick = HAL_GetTick();
+          dt = tick - prev_tick;
+          prev_tick = tick;
 
-      tick = HAL_GetTick();
-      dt = tick - prev_tick;
-      prev_tick = tick;
+          BSP_MPU_read_rot();
+          BSP_MPU_read_acc();
 
-      BSP_MPU_updateIMU(ac[x], ac[y], ac[z], gy[x], gy[y], gy[z], dt);
+          BSP_MPU_updateIMU(ac[x], ac[y], ac[z], gy[x], gy[y], gy[z], 10);
+          BSP_MPU_getEuler(&roll, &pitch, &yaw);
 
-      BSP_MPU_getEuler(&roll, &pitch, &yaw);
-
+          sprintf(buf, "dt: %ld\n", dt );
+          //sprintf(buf, "%3.3f,%3.3f,%3.3f\n", yaw, pitch, roll);
+          CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
 
       //########### moving circle by gravity, little game ################
       //########### set rotation above according to IMU orientation ######
 
-	  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-	  BSP_LCD_DrawCircle(xp, yp , 5);
+    	  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+    	  BSP_LCD_DrawCircle(xp, yp , 5);
 
-      BSP_LCD_SetTextColor(LCD_COLOR_RED);
-      BSP_LCD_DrawRect(74, 58, 13, 13);
+          BSP_LCD_SetTextColor(LCD_COLOR_RED);
+          BSP_LCD_DrawRect(74, 58, 13, 13);
 
-	  vx += sinf(pitch)*10f;
-	  vy += sinf(roll)*10f;
-	  xp += roundf(vx);
-	  yp += roundf(vy);
+    	  vx += sinf(pitch)*10;
+    	  vy += sinf(roll)*10;
+    	  xp += roundf(vx);
+    	  yp += roundf(vy);
 
-	  if ( xp < 5 ) {
-		  xp = 5;
-		  vx = 0;
-	  }
-	  if ( yp < 5 ) {
-		  yp = 5;
-		  vy = 0;
-	  }
-	  if ( yp > 122) {
-		  yp = 122;
-		  vy = 0;
-	  }
-	  if ( xp > 154) {
-		  xp = 154;
-		  vx = 0;
-	  }
+    	  if ( xp < 5 ) {
+    		  xp = 5;
+    		  vx = 0;
+    	  }
+    	  if ( yp < 5 ) {
+    		  yp = 5;
+    		  vy = 0;
+    	  }
+    	  if ( yp > 122) {
+    		  yp = 122;
+    		  vy = 0;
+    	  }
+    	  if ( xp > 154) {
+    		  xp = 154;
+    		  vx = 0;
+    	  }
 
-	  BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
-	  BSP_LCD_DrawCircle(xp, yp , 5);
+    	  BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
+    	  BSP_LCD_DrawCircle(xp, yp , 5);
 
-      if ( xp == 80 && yp == 64 )
-      {
-          //load picture if successful
-          res = BSP_SD_Init();
-          if ( res == BSP_SD_OK )
+    	  //HAL_Delay(20);
+
+          if ( xp == 80 && yp == 64 )
           {
-              TFT_DisplayImages(0, 0, "PICT2.BMP");
+              //load picture if successful
+        	  //prevents update in time (10 ms) of IMU
+        	  //while s-bus and servo are going on
+              res = BSP_SD_Init();
+              if ( res == BSP_SD_OK )
+              {
+                  TFT_DisplayImages(0, 0, "PICT2.BMP");
+              }
           }
-      }
-
-
-	  // sprintf(buf, "%3.3f,%3.3f,%3.3f\n", yaw, pitch, roll);
-      // sprintf(buf, "dt: %ld\n", dt );
-
- 	  CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
-
-	  HAL_Delay(10);
 
       //############ end moving circle by gravity ########################
-*/
+
+      }
 
 /*
       //############ show Euler angles and quaternion ####################
@@ -830,6 +809,15 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *AdcHandle)
   ubSequenceCompleted = SET;
 }
 */
+
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+	if (htim == &htim2)
+	{
+	    PeriodElapsed = 1;
+ 	}
+}
 
 static uint8_t TFT_DisplayImages(uint8_t x, uint16_t y, const char* fname)
 {
