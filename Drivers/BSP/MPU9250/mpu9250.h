@@ -201,6 +201,7 @@ void    BSP_MPU_GyroCalibration(void);
 #define BITS_FS_8G                  0x10
 #define BITS_FS_16G                 0x18
 #define BITS_FS_MASK                0x18
+
 #define BITS_DLPF_CFG_256HZ_NOLPF2  0x00
 #define BITS_DLPF_CFG_188HZ         0x01
 #define BITS_DLPF_CFG_98HZ          0x02
@@ -210,6 +211,7 @@ void    BSP_MPU_GyroCalibration(void);
 #define BITS_DLPF_CFG_5HZ           0x06
 #define BITS_DLPF_CFG_2100HZ_NOLPF  0x07
 #define BITS_DLPF_CFG_MASK          0x07
+
 #define BIT_INT_ANYRD_2CLEAR        0x10
 #define BIT_RAW_RDY_EN              0x01
 #define BIT_I2C_IF_DIS              0x10

@@ -8,5 +8,6 @@
 #include "tim.h"
 
 extern volatile uint16_t servos[4];
+extern volatile uint8_t PeriodElapsed;
 
 #endif /* __SERVO_H*/

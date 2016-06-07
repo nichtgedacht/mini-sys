@@ -60,23 +60,22 @@
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 
-uint32_t counter = 0;
+uint8_t counter = 0;
 char* pDirectoryFiles[MAX_BMP_FILES];
 uint8_t res;
 FRESULT fres;
 DIR directory;
 FATFS SD_FatFs;  /* File system object for SD card logical drive */
 UINT BytesWritten, BytesRead;
-uint8_t str[20];
 uint32_t size = 0;
 uint32_t nbline;
 uint8_t *ptr = NULL;
-float volt1, volt2 = 0.0f;
+float volt1 = 0.0f, volt2 = 0.0f;
 uint32_t free_ram;
 uint8_t red=1;
 uint32_t width;
 uint32_t height;
-char buf[20]={0};
+char buf[30]={0};
 uint16_t color=LCD_COLOR_WHITE;
 const uint8_t flash_top=255;
 uint32_t free_flash;
@@ -88,10 +87,6 @@ float bla;
 int xp, yp;
 float vx=0.0f, vy=0.0f;
 HAL_StatusTypeDef hal_res;
-volatile uint8_t PeriodElapsed=0;
-//volatile uint32_t   aADCxConvertedValues[3];
-//volatile uint8_t         ubSequenceCompleted = RESET;
-//uint32_t alloc;
 
 /* USER CODE END PV */
 
@@ -101,8 +96,6 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-
-static uint8_t TFT_DisplayImages(uint8_t x, uint16_t y, const char* fname);
 
 /* USER CODE END PFP */
 
@@ -142,7 +135,8 @@ int main(void)
   HAL_UART_Receive_IT(&huart1, (uint8_t*)uart_data, 25);
 
   //############### MPU Test init ########################################
-  BSP_MPU_Init(99, 0x06, 0x06);
+  // no sample rate divider, accel: lowpass filter bandwidth 460 Hz, Rate 1kHz, gyro:  lowpass filter bandwidth 250 Hz
+  BSP_MPU_Init(0, 0, 0);
   BSP_MPU_GyroCalibration();
   //############ end MPU Test init #######################################
 
@@ -163,8 +157,8 @@ int main(void)
   __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_UPDATE);
 
   //for moving circle by gravity start position
-  xp = BSP_LCD_GetXSize()/2 + 1;
-  yp = BSP_LCD_GetYSize()/2;
+  xp = BSP_LCD_GetXSize()/2-1;
+  yp = BSP_LCD_GetYSize()/2+1;
 
   // enable USB on maple mine clone or use reset as default state
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET);
@@ -174,27 +168,17 @@ int main(void)
 
   if ( res != BSP_SD_OK)
   {
-      for (counter = 0; counter < 6; counter++)
-      {
-          HAL_GPIO_TogglePin(GPIOB,  GPIO_PIN_1);
-          HAL_GPIO_TogglePin(GPIOC,  GPIO_PIN_13);
-          HAL_Delay(100);
-      }
+	  Error_Handler();
   }
   else
   {
       fres = f_mount(&SD_FatFs, (TCHAR const*)"/", 0);
-          sprintf(buf, "f_mount: %d", fres);
+      sprintf(buf, "f_mount: %d", fres);
   }
 
   if ( fres != FR_OK)
   {
-      for (counter = 0; counter < 6; counter++)
-      {
-          HAL_GPIO_TogglePin(GPIOB,  GPIO_PIN_1);
-          HAL_GPIO_TogglePin(GPIOC,  GPIO_PIN_13);
-          HAL_Delay(100);
-      }
+	  Error_Handler();
   }
   else
   {
@@ -202,27 +186,15 @@ int main(void)
       {
           pDirectoryFiles[counter] = malloc(11);
       }
-
   }
+
   //############ end init SD-card, signal errors by LED ##################
 
-
-  //res = BSP_SD_Init();
-  //if ( res == BSP_SD_OK )
-  //{
-  //    TFT_DisplayImages(0, 0, "PICT1.BMP");
-  //}
-
   /*
-  HAL_ADCEx_Calibration_Start(&hadc1);
-  if ( HAL_ADC_Start_DMA(&hadc1, (uint32_t *)aADCxConvertedValues, 3) != HAL_OK)
+  res = BSP_SD_Init();
+  if ( res == BSP_SD_OK )
   {
-      for (counter = 0; counter < 6; counter++)
-      {
-          HAL_GPIO_TogglePin(GPIOB,  GPIO_PIN_1);
-          HAL_GPIO_TogglePin(GPIOC,  GPIO_PIN_13);
-          HAL_Delay(500);
-      }
+      TFT_DisplayImages(0, 0, "PICT2.BMP", buf);
   }
   */
 
@@ -236,70 +208,8 @@ int main(void)
 
   /* USER CODE BEGIN 3 */
 
-      HAL_GPIO_TogglePin(GPIOB,  GPIO_PIN_1);
-      HAL_GPIO_TogglePin(GPIOC,  GPIO_PIN_13);
-
-
-      //################### ADC test #####################################
-
-      /*
-      if (ubSequenceCompleted == SET) {
-
-
-    	  volt1 =  (3.3 * aADCxConvertedValues[2]) / 4090;
-    	//  volt2 =  (3.3 * aADCxConvertedValues[3]) / 4090;
-    	  volt2 += 0.01f;
-
-    	//  sprintf(buf, "%d\n", aADCxConvertedValues[2]);
-
-    	  sprintf(buf, "V2: %3.3f\n", volt2 );
-
-    	  ubSequenceCompleted = RESET;
-
-    	  //HAL_ADC_Start(&hadc1);
-    	  HAL_ADC_Start_DMA(&hadc1, (uint32_t *)aADCxConvertedValues, 3);
-
-      }
-      */
-
-      HAL_ADCEx_Calibration_Start(&hadc1);
-      if ( HAL_ADC_Start(&hadc1) == HAL_OK )
-      {
-          if ( HAL_ADC_PollForConversion(&hadc1, 100) == HAL_OK )
-          {
-              volt1 =  (3.3 * HAL_ADC_GetValue(&hadc1)) / 4090; // calibrate
-          }
-
-          HAL_ADC_Stop(&hadc1);
-      }
-
-	  //sprintf(buf, "V1: %3.3f\n", volt1 );
-	  //CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
-	  //usage:  "cat /dev/ttyACM0"
-
-      /*
-      HAL_ADCEx_Calibration_Start(&hadc2);
-      if ( HAL_ADC_Start(&hadc2) == HAL_OK )
-      {
-          if ( HAL_ADC_PollForConversion(&hadc2, 100) == HAL_OK )
-          {
-              volt2 =  (3.3 * HAL_ADC_GetValue(&hadc2)) / 4090;  // calibrate
-          }
-
-          HAL_ADC_Stop(&hadc2);
-      }
-      */
-      //###################### end ADC test ##############################
-
-
       //############ s-bus test ##########################################
-
-
       //########### set rotation to 0 or 2 above #########################
-      if ( SBUS_RECEIVED == 1 )
-      {
-
-          SBUS_RECEIVED = 0;
 
 /*
       	  // show channels 1-12
@@ -308,7 +218,6 @@ int main(void)
       	  sprintf(buf, "ch_1: %d", channels[0]);
       	  BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
       	  BSP_LCD_DisplayStringAtLine(0, (uint8_t *)buf);
-
 
       	  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
       	  BSP_LCD_FillRect(0, 1 * 12, BSP_LCD_GetXSize() - 50, 12);
@@ -383,26 +292,15 @@ int main(void)
    	  	  BSP_LCD_DisplayStringAtLine(12, (uint8_t *)buf);
 
 */
-          //servos[0] = channels[0]/2 + 1000; //normal
-          servos[0] = 2000 - channels[0]/2;   //reverse
-          servos[1] = channels[1]/2 + 1000;
-          servos[2] = channels[2]/2 + 1000;
-          servos[3] = channels[3]/2 + 1000;
-
-   	  }
-
-      if ( HAL_UART_ERROR != 0 )
-      {
-          HAL_UART_ERROR = 0;
-      }
-
       //############ end s-bus test ######################################
 
       //############### MPU Test #########################################
 
-      if ( PeriodElapsed == 1)
+      if ( PeriodElapsed == 1) // 200 Hz
       {
     	  PeriodElapsed = 0;
+
+    	  counter++;
 
           tick = HAL_GetTick();
           dt = tick - prev_tick;
@@ -411,48 +309,57 @@ int main(void)
           BSP_MPU_read_rot();
           BSP_MPU_read_acc();
 
-          BSP_MPU_updateIMU(ac[x], ac[y], ac[z], gy[x], gy[y], gy[z], 10);
+          BSP_MPU_updateIMU(ac[x], ac[y], ac[z], gy[x], gy[y], gy[z], 5);
           BSP_MPU_getEuler(&roll, &pitch, &yaw);
 
-          sprintf(buf, "dt: %ld\n", dt );
-          //sprintf(buf, "%3.3f,%3.3f,%3.3f\n", yaw, pitch, roll);
+          //free_ram = (0x20000000 + 1024 * 20) - (uint32_t) sbrk((int)0);
+          //sprintf(buf, "free: %ld\n", free_ram);
+
+          //sprintf(buf, "dt: %ld\n", dt );
+          sprintf(buf, "%3.3f,%3.3f,%3.3f\n", yaw, pitch, roll);
           CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
 
       //########### moving circle by gravity, little game ################
       //########### set rotation above according to IMU orientation ######
 
-    	  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+          BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
     	  BSP_LCD_DrawCircle(xp, yp , 5);
 
           BSP_LCD_SetTextColor(LCD_COLOR_RED);
           BSP_LCD_DrawRect(74, 58, 13, 13);
 
-    	  vx += sinf(pitch)*10;
-    	  vy += sinf(roll)*10;
-    	  xp += roundf(vx);
-    	  yp += roundf(vy);
+          if ( counter > 5)
+          {
+              counter = 0;
 
-    	  if ( xp < 5 ) {
-    		  xp = 5;
-    		  vx = 0;
-    	  }
-    	  if ( yp < 5 ) {
-    		  yp = 5;
-    		  vy = 0;
-    	  }
-    	  if ( yp > 122) {
-    		  yp = 122;
-    		  vy = 0;
-    	  }
-    	  if ( xp > 154) {
-    		  xp = 154;
-    		  vx = 0;
-    	  }
+       	      vx += sinf(pitch)*20.0;
+       	      vy += sinf(roll)*20.0;
+
+   	          xp += roundf(vx);
+   	          yp += roundf(vy);
+
+    	      if ( xp < 5 ) {
+    		      xp = 5;
+    		      vx = 0;
+    	      }
+    	      if ( yp < 5 ) {
+    		      yp = 5;
+    		      vy = 0;
+    	      }
+    	      if ( yp > 122) {
+    		      yp = 122;
+    		      vy = 0;
+    	      }
+    	      if ( xp > 154) {
+    		      xp = 154;
+    		      vx = 0;
+    	      }
+          }
 
     	  BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
     	  BSP_LCD_DrawCircle(xp, yp , 5);
 
-    	  //HAL_Delay(20);
+    	  // HAL_Delay(6); //6ms time left for keeping 100 Hz refresh
 
           if ( xp == 80 && yp == 64 )
           {
@@ -462,11 +369,36 @@ int main(void)
               res = BSP_SD_Init();
               if ( res == BSP_SD_OK )
               {
-                  TFT_DisplayImages(0, 0, "PICT2.BMP");
+                  TFT_DisplayImages(0, 0, "PICT2.BMP", buf);
               }
           }
 
       //############ end moving circle by gravity ########################
+
+          //servos[0] = channels[0] + 2000;   //normal
+          servos[0] = 4000 - channels[0];   //reverse
+          servos[1] = channels[1] + 2000;
+          servos[2] = channels[2] + 2000;
+          servos[3] = channels[3] + 2000;
+
+          HAL_ADCEx_Calibration_Start(&hadc1);
+          if ( HAL_ADC_Start(&hadc1) == HAL_OK )
+          {
+              if ( HAL_ADC_PollForConversion(&hadc1, 100) == HAL_OK )
+              {
+                  volt1 =  (3.3 * HAL_ADC_GetValue(&hadc1)) / 4090; // calibrate
+              }
+
+              HAL_ADC_Stop(&hadc1);
+          }
+
+          HAL_GPIO_TogglePin(GPIOB,  GPIO_PIN_1);
+          HAL_GPIO_TogglePin(GPIOC,  GPIO_PIN_13);
+
+          if ( HAL_UART_ERROR != 0 )
+          {
+              HAL_UART_ERROR = 0;
+          }
 
       }
 
@@ -574,167 +506,10 @@ int main(void)
       //BSP_LCD_DisplayStringAtLine(4, (uint8_t *)buf);
 	  //############ end IMU SPI test ####################################
 
-      //############# show loop speed #####################################
-	  dtx = dt + 1;
-	  if ( dtx > dt)
-	  {
-	      dtx = dt;
-	  }
-	  sprintf(buf, "dt: %ld", dtx);
-	  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-	  BSP_LCD_FillRect(35, 9 * 12, 35, 12);
-	  BSP_LCD_SetTextColor(LCD_COLOR_BLUE);
-	  BSP_LCD_DisplayStringAtLine(9, (uint8_t *)buf);
-	  //############# end show loop speed #################################
-
-
       //#################### end MPU Test ################################
 */
 
-
-/*
-      //##################### Display Test ###############################
-
-      //BSP_LCD_DisplayChar(20, 20, 'H');
-      //BSP_LCD_DisplayStringAt(uint16_t Xpos, uint16_t Ypos, uint8_t *Text, Line_ModeTypdef Mode)
-
-      BSP_LCD_DisplayStringAt(8, 8, (uint8_t *) "Hello", LEFT_MODE);
-      BSP_LCD_DisplayStringAt(8, 8 + BSP_LCD_GetFontHeight(), (uint8_t *) "World", LEFT_MODE);
-
-      //BSP_LCD_DisplayStringAtLine(0, (uint8_t *) "Hello");
-      //BSP_LCD_DisplayStringAtLine(1, (uint8_t *) "World");
-
-      BSP_LCD_DrawRect(7, 7, 72, 42);
-      BSP_LCD_DrawCircle(BSP_LCD_GetXSize() - 28, BSP_LCD_GetYSize() - 28, 21);
-      BSP_LCD_DrawRect(BSP_LCD_GetXSize() - 49, BSP_LCD_GetYSize() - 49, 43, 43);
-
-      BSP_LCD_DrawRect(0, 0, BSP_LCD_GetXSize(), BSP_LCD_GetYSize());
-      BSP_LCD_DrawRect(1, 1, BSP_LCD_GetXSize()-2, BSP_LCD_GetYSize()-2);
-
-      BSP_LCD_SetTextColor(color);
-      BSP_LCD_FillRect( 6, BSP_LCD_GetYSize() / 2 - 9, BSP_LCD_GetXSize() - 12, 19 );
-      BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-      BSP_LCD_SetFont(&Font12);
-
-      //ptr = malloc(sizeof(uint8_t)*12);
-      //if ( ptr != NULL)
-      //  {
-      //      memset(ptr, 0xFF, sizeof(uint8_t)*12);
-      //  }
-      //alloc = (uint32_t) sbrk((int)0);
-
-
-      // ######################## free_ram check  ########################
-      //free_ram = (0x20000000 + 1024 * 20) - (uint32_t) sbrk((int)0);
-      //sprintf(buf, "free: %ld", free_ram);
-      // #################################################################
-      // ######################## free_flash check #######################
-      //free_flash = (0x8000000 + 1024 * 64) - (uint32_t) &flash_top;
-      //sprintf(buf, "free: %ld", free_flash);
-      // #################################################################
-
-      //displays last sprintf buf value on center bar
-      BSP_LCD_SetBackColor(color);
-      BSP_LCD_DisplayStringAt(0, BSP_LCD_GetYSize() / 2 - 6, (uint8_t *) buf, CENTER_MODE);
-
-      //######### write to /dev/ACM0 (USB) ###############################
-	  //UsbDeviceFS comes magically from usbd_cdc_if.h (extern declaration)
-	  //this function is not well implemented
-	  if ( USBD_LL_DevConnected(&hUsbDeviceFS) == USBD_OK)
-	  {
-	      sprintf(buf, "U1: %3.3f V\n", volt1);
-		  CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
-
-	  }
-	  //######### end write to /dev/ACM0 (USB) ###########################
-
-      HAL_Delay(100);
-      HAL_GPIO_TogglePin(GPIOB,  GPIO_PIN_1);   // Maple mini clone LED
-      HAL_GPIO_TogglePin(GPIOC,  GPIO_PIN_13);  // STM32 minimum system LED
-      HAL_Delay(2500);
-
-      if ( red == 1 )
-      {
-          red = 0;
-          sprintf(buf, "V1: %3.3f V", volt1);
-
-          //color = ( ( sizeof(uint16_t) * rand() + 1 ) / sizeof(int));
-          color = LCD_COLOR_YELLOW;
-
-          BSP_LCD_SetFont(&Font20);
-          BSP_LCD_SetRotation( ( BSP_LCD_GetRotation() + 1 ) % 4  );
-          BSP_LCD_SetBackColor(LCD_COLOR_RED);
-          //BSP_LCD_Clear(LCD_COLOR_BLACK);
-
-          if ( BSP_LCD_GetRotation() == 0 || BSP_LCD_GetRotation() == 2)
-          {
-              res = BSP_SD_Init();
-              if ( res == BSP_SD_OK )
-              {
-                  TFT_DisplayImages(0, 0, "PICT1.BMP");
-
-                  //if(f_open(&bmpfile, "testfile", FA_WRITE | FA_CREATE_NEW) == FR_OK)
-                  //{
-                  //    sprintf(buf, "%s\n", "Hallo Welt" );
-                  //    f_write(&bmpfile, buf, strlen(buf), &BytesWritten);
-                  //    f_close(&bmpfile);
-                  //
-                  //}
-
-
-                  //res = BSP_SD_GetStatus();
-                  //sprintf(buf, "SD_Status: %d", res );
-              }
-          }
-          else
-          {
-              res = BSP_SD_Init();
-        	  if ( res == BSP_SD_OK )
-        	  {
-        	      TFT_DisplayImages(0, 0, "PICT2.BMP");
-              }
-          }
-
-          BSP_LCD_SetTextColor(LCD_COLOR_RED);
-          BSP_LCD_FillCircle(BSP_LCD_GetXSize() - 28, BSP_LCD_GetYSize() - 28, 20);
-          BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-      }
-      else
-      {
-          red = 1;
-          sprintf(buf, "V2: %3.3f V", volt2);
-
-          //color =  ( ( sizeof(uint16_t) * rand() + 1 ) / sizeof(int));
-          color = LCD_COLOR_WHITE;
-
-          BSP_LCD_SetFont(&Font20);
-          BSP_LCD_SetBackColor(LCD_COLOR_BLUE);
-          BSP_LCD_SetTextColor(LCD_COLOR_WHITE);
-          //BSP_LCD_Clear(LCD_COLOR_BLUE);
-
-          if ( BSP_LCD_GetRotation() == 0 || BSP_LCD_GetRotation() == 2)
-          {
-              res = BSP_SD_Init();
-        	  if ( res == BSP_SD_OK )
-        	  {
-        	      TFT_DisplayImages(BSP_LCD_GetXSize()-50, BSP_LCD_GetYSize()-50, "PICT1-P.BMP");
-              }
-          }
-          else
-          {
-              res = BSP_SD_Init();
-        	  if ( res == BSP_SD_OK )
-        	  {
-        	      TFT_DisplayImages(BSP_LCD_GetXSize()-50, BSP_LCD_GetYSize()-50, "PICT2-P.BMP");
-              }
-          }
-      }
-
-      //###################### end Display Test ##########################
-
-*/
-
-      }
+  } //while(1)
 
   /* USER CODE END 3 */
 
@@ -792,86 +567,6 @@ void SystemClock_Config(void)
 
 /* USER CODE BEGIN 4 */
 
-/*
-void  HAL_ADC_ErrorCallback(ADC_HandleTypeDef *AdcHandle)
-{
-    for (counter = 0; counter < 6; counter++)
-    {
-        HAL_GPIO_TogglePin(GPIOB,  GPIO_PIN_1);
-        HAL_GPIO_TogglePin(GPIOC,  GPIO_PIN_13);
-        HAL_Delay(50);
-    }
-}
-
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *AdcHandle)
-{
-  //Report to main program that ADC sequencer has reached its end
-  ubSequenceCompleted = SET;
-}
-*/
-
-
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-	if (htim == &htim2)
-	{
-	    PeriodElapsed = 1;
- 	}
-}
-
-static uint8_t TFT_DisplayImages(uint8_t x, uint16_t y, const char* fname)
-{
-  uint32_t bmplen = 0x00;
-  uint32_t nfiles=0x00;
-  uint32_t checkstatus = 0x00;
-  DIR directory;
-  FRESULT res;
-
-  /* Open directory */
-  res = f_opendir(&directory, "/");
-  if((res != FR_OK))
-  {
-    if(res == FR_NO_FILESYSTEM)
-    {
-      sprintf(buf, "SD_CARD_NOT_FORMATTED" );
-      return 1;
-    }
-    else
-    {
-      sprintf(buf, "SD_CARD_OPEN_FAIL" );
-      return 1;
-    }
-  }
-
-  /* Get number of bitmap files */
-  nfiles = Storage_GetDirectoryBitmapFiles ("/", pDirectoryFiles);
-
-  //sprintf(buf, "nfiles: %ld", number_of_files);
-
-  //sprintf((char*)str, "%-11.11s", pDirectoryFiles[bmpcounter -1]);
-
-  // sprintf((char*)str, "%s", pDirectoryFiles[bmpcounter -1]);
-
-  sprintf((char*)str, "%s", fname);
-
-  checkstatus = Storage_CheckBitmapFile((const char*)str, &bmplen);
-
-  //sprintf(buf, "%ld: %s", bmpcounter, str );
-
-  if(checkstatus == 0)
-  {
-      checkstatus = Storage_OpenReadFile(x, y, (const char*)str);
-  }
-
-  if (checkstatus == 1)
-  {
-      //sprintf(buf, "SD_CARD_FILE_NOT_SUPPORTED" );
-	  return 1;
-  }
-
-  return 0;
-
-}
 
 /* USER CODE END 4 */
 
@@ -884,9 +579,13 @@ void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler */
   /* User can add his own implementation to report the HAL error return state */
-  while(1) 
-  {
-  }
+  uint8_t counter;
+    for (counter = 0; counter < 6; counter++)
+    {
+        HAL_GPIO_TogglePin(GPIOB,  GPIO_PIN_1);
+        HAL_GPIO_TogglePin(GPIOC,  GPIO_PIN_13);
+        HAL_Delay(200);
+    }
   /* USER CODE END Error_Handler */ 
 }
 

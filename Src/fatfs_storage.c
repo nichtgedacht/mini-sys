@@ -266,4 +266,60 @@ uint8_t Buffercmp(uint8_t* pBuffer1, uint8_t* pBuffer2, uint16_t BufferLength)
   return ret;
 }
 
+uint8_t TFT_DisplayImages(uint8_t x, uint16_t y, const char* fname, char* msg)
+{
+  uint32_t bmplen = 0x00;
+  uint32_t nfiles=0x00;
+  uint32_t checkstatus = 0x00;
+  uint8_t str[20];
+  DIR directory;
+  FRESULT res;
+
+  // Open directory
+  res = f_opendir(&directory, "/");
+  if((res != FR_OK))
+  {
+    if(res == FR_NO_FILESYSTEM)
+    {
+      sprintf(msg, "SD_CARD_NOT_FORMATTED" );
+      return 1;
+    }
+    else
+    {
+      sprintf(msg, "SD_CARD_OPEN_FAIL" );
+      return 1;
+    }
+  }
+
+  //Get number of bitmap files
+  //nfiles = Storage_GetDirectoryBitmapFiles ("/", pDirectoryFiles);
+
+  //sprintf(msg, "nfiles: %ld", number_of_files);
+
+  //sprintf((char*)str, "%-11.11s", pDirectoryFiles[bmpcounter -1]);
+
+  // sprintf((char*)str, "%s", pDirectoryFiles[bmpcounter -1]);
+
+  sprintf((char*)str, "%s", fname);
+
+  checkstatus = Storage_CheckBitmapFile((const char*)str, &bmplen);
+
+  //sprintf(buf, "%ld: %s", bmpcounter, str );
+
+  if(checkstatus == 0)
+  {
+      checkstatus = Storage_OpenReadFile(x, y, (const char*)str);
+  }
+
+  if (checkstatus == 1)
+  {
+      //sprintf(msg, "SD_CARD_FILE_NOT_SUPPORTED" );
+	  return 1;
+  }
+
+  return 0;
+
+}
+
+
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

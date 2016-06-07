@@ -26,11 +26,12 @@ uint8_t BSP_MPU_Init(uint8_t sample_rate_div, uint8_t GY_low_pass_filter, uint8_
       {0x80, MPUREG_PWR_MGMT_1},     // Reset Device
       {0x01, MPUREG_PWR_MGMT_1},     // Clock Source
       {0x00, MPUREG_PWR_MGMT_2},     // Enable Acc & Gyro
-      {GY_low_pass_filter, MPUREG_CONFIG},         // Use DLPF set Gyroscope bandwidth 184Hz, temperature bandwidth 188Hz
-	  {sample_rate_div, MPUREG_SMPLRT_DIV}, // sample_rate_div
-      {0x18, MPUREG_GYRO_CONFIG},    // +-2000dps
+      {GY_low_pass_filter, MPUREG_CONFIG},   // Use DLPF set Gyroscope bandwidth and temperature 0=250Hz
+	  {sample_rate_div, MPUREG_SMPLRT_DIV}, // sample_rate_div RATE=internal_RATE / (div + 1)
+      {0x18, MPUREG_GYRO_CONFIG},    // +-2000dps, Bit 0-1 unset (FCHOICE_B) enables LPF (FCHOICE set)
       {0x08, MPUREG_ACCEL_CONFIG},   // +-4G
-      {AC_low_pass_filter, MPUREG_ACCEL_CONFIG_2}, // Set Acc Data Rates, Enable Acc LPF , Bandwidth 184Hz
+      {AC_low_pass_filter, MPUREG_ACCEL_CONFIG_2}, // Set Acc Data Rates, Enable Acc LPF  ACCEL_FCHOICE_B (Bit3), LPF Bit 0-2
+	                                               // Bit 3 = 0 (ACCEL_FCHOICE = 1) and Bit 0 - 2 = 0 ->  LPF enabled, BW 460 Hz, Rate 1kHz
       {0x30, MPUREG_INT_PIN_CFG},    //
       //{0x40, MPUREG_I2C_MST_CTRL},   // I2C Speed 348 kHz
       //{0x20, MPUREG_USER_CTRL},      // Enable AUX

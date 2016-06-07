@@ -58,6 +58,7 @@ extern "C"
 /* Includes ------------------------------------------------------------------*/
 #include "ff_gen_drv.h"
 #include "stm32_adafruit_lcd.h"
+#include "unistd.h"
 /* Exported types ------------------------------------------------------------*/
 
 #define  MAX_BMP_FILES  10
@@ -94,6 +95,7 @@ uint32_t Storage_CopyFile(const char *BmpName1, const char *BmpName2);
 uint32_t Storage_GetDirectoryBitmapFiles(const char* DirName, char* Files[]);
 uint32_t Storage_CheckBitmapFile(const char *BmpName, uint32_t *FileLen);
 uint8_t  Buffercmp(uint8_t *pBuffer1, uint8_t *pBuffer2, uint16_t BufferLength);
+uint8_t TFT_DisplayImages(uint8_t x, uint16_t y, const char* fname, char* msg);
 
 #ifdef __cplusplus
 }

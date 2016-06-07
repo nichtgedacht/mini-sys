@@ -1,6 +1,6 @@
 Configuration	mini-sys
 STM32CubeMX 	4.15.0
-Date	06/03/2016
+Date	06/07/2016
 MCU	STM32F103C8Tx
 
 
@@ -63,7 +63,7 @@ SOFTWARE PROJECT
 
 Project Settings : 
 Project Name : mini-sys
-Project Folder : /array_data01/STM32-20/mini-sys
+Project Folder : /array_data01/STM32-21/mini-sys
 Toolchain / IDE : SW4STM32
 Firmware Package Name and Version : STM32Cube FW_F1 V1.4.0
 

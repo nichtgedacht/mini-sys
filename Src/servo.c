@@ -1,6 +1,7 @@
 #include "servo.h"
 
-volatile uint16_t servos[4]={1500}; //servo pulse width 1000 to 2000 us
+volatile uint16_t servos[4]={3000}; //servo pulse width 1000 to 2000 us
+volatile uint8_t PeriodElapsed=0;
 
 /**
   * @brief  one servo pulse finished callbacks, update CCRx asap
@@ -31,3 +32,12 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
         }
 	}
 }
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+	if (htim == &htim2)
+	{
+	    PeriodElapsed = 1;
+ 	}
+}
+
