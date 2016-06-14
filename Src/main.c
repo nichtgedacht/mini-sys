@@ -75,7 +75,7 @@ uint32_t free_ram;
 uint8_t red=1;
 uint32_t width;
 uint32_t height;
-char buf[30]={0};
+char buf[50]={0};
 uint16_t color=LCD_COLOR_WHITE;
 const uint8_t flash_top=255;
 uint32_t free_flash;
@@ -88,6 +88,31 @@ int xp, yp;
 float vx=0.0f, vy=0.0f;
 HAL_StatusTypeDef hal_res;
 
+float diffroll;
+float diffnick;
+float diffgier;
+
+int16_t thrust_set = 0;
+int16_t roll_set = 0;
+int16_t nick_set = 0;
+int16_t gier_set = 0;
+
+//int32_t i_diffroll;
+
+const float RKp=1.0f;
+const float RKi=0.0f;
+const float RKd=0.0f;
+
+const float NKp=1.0f;
+const float NKi=0.0f;
+const float NKd=0.0f;
+
+const float GKp=1.0f;
+const float GKi=0.0f;
+const float GKd=0.0f;
+
+const float RC = 0.007958;  // 1/(2*PI*_fCut fcut = 20 from Ardupilot
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -96,6 +121,9 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
+int16_t pid(uint8_t axis, float error, float Kp, float Ki, float Kd, float dt);
+void control(int16_t thrust_set, int16_t roll_set, int16_t nick_set, int16_t gier_set);
+
 
 /* USER CODE END PFP */
 
@@ -136,7 +164,7 @@ int main(void)
 
   //############### MPU Test init ########################################
   // no sample rate divider, accel: lowpass filter bandwidth 460 Hz, Rate 1kHz, gyro:  lowpass filter bandwidth 250 Hz
-  BSP_MPU_Init(0, 0, 0);
+  BSP_MPU_Init(0, 2, 0);
   BSP_MPU_GyroCalibration();
   //############ end MPU Test init #######################################
 
@@ -190,13 +218,13 @@ int main(void)
 
   //############ end init SD-card, signal errors by LED ##################
 
-  /*
+
   res = BSP_SD_Init();
   if ( res == BSP_SD_OK )
   {
       TFT_DisplayImages(0, 0, "PICT2.BMP", buf);
   }
-  */
+
 
   /* USER CODE END 2 */
 
@@ -208,10 +236,13 @@ int main(void)
 
   /* USER CODE BEGIN 3 */
 
+      /*
       //############ s-bus test ##########################################
       //########### set rotation to 0 or 2 above #########################
 
-/*
+	      BSP_LCD_SetRotation(0);
+	      BSP_LCD_SetFont(&Font12);
+
       	  // show channels 1-12
       	  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
       	  BSP_LCD_FillRect(0, 0 * 12, BSP_LCD_GetXSize() - 50, 12);
@@ -291,12 +322,13 @@ int main(void)
    	  	  BSP_LCD_SetTextColor(LCD_COLOR_RED);
    	  	  BSP_LCD_DisplayStringAtLine(12, (uint8_t *)buf);
 
-*/
+
       //############ end s-bus test ######################################
+      */
 
       //############### MPU Test #########################################
 
-      if ( PeriodElapsed == 1) // 200 Hz
+      if ( PeriodElapsed == 1) // 400 Hz
       {
     	  PeriodElapsed = 0;
 
@@ -309,28 +341,29 @@ int main(void)
           BSP_MPU_read_rot();
           BSP_MPU_read_acc();
 
-          BSP_MPU_updateIMU(ac[x], ac[y], ac[z], gy[x], gy[y], gy[z], 5);
+          BSP_MPU_updateIMU(ac[x], ac[y], ac[z], gy[x], gy[y], gy[z], 2.5f);
           BSP_MPU_getEuler(&roll, &pitch, &yaw);
 
           //free_ram = (0x20000000 + 1024 * 20) - (uint32_t) sbrk((int)0);
           //sprintf(buf, "free: %ld\n", free_ram);
 
           //sprintf(buf, "dt: %ld\n", dt );
-          sprintf(buf, "%3.3f,%3.3f,%3.3f\n", yaw, pitch, roll);
-          CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
+          //sprintf(buf, "%3.3f,%3.3f,%3.3f\n", yaw, pitch, roll);
+          //sprintf(buf, "%3.3f,%3.3f,%3.3f,%3.3f,%3.3f,%3.3f\n", ac[x], ac[y], ac[z], gy[x], gy[y], gy[z]);
+
 
       //########### moving circle by gravity, little game ################
       //########### set rotation above according to IMU orientation ######
 
-          BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-    	  BSP_LCD_DrawCircle(xp, yp , 5);
-
-          BSP_LCD_SetTextColor(LCD_COLOR_RED);
-          BSP_LCD_DrawRect(74, 58, 13, 13);
-
           if ( counter > 5)
           {
               counter = 0;
+
+              BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+        	  BSP_LCD_DrawCircle(xp, yp , 5);
+
+              BSP_LCD_SetTextColor(LCD_COLOR_RED);
+              BSP_LCD_DrawRect(74, 58, 13, 13);
 
        	      vx += sinf(pitch)*20.0;
        	      vy += sinf(roll)*20.0;
@@ -354,13 +387,15 @@ int main(void)
     		      xp = 154;
     		      vx = 0;
     	      }
-          }
 
-    	  BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
-    	  BSP_LCD_DrawCircle(xp, yp , 5);
+        	  BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
+        	  BSP_LCD_DrawCircle(xp, yp , 5);
+
+          }
 
     	  // HAL_Delay(6); //6ms time left for keeping 100 Hz refresh
 
+          /*
           if ( xp == 80 && yp == 64 )
           {
               //load picture if successful
@@ -372,14 +407,51 @@ int main(void)
                   TFT_DisplayImages(0, 0, "PICT2.BMP", buf);
               }
           }
+          */
 
       //############ end moving circle by gravity ########################
 
-          //servos[0] = channels[0] + 2000;   //normal
-          servos[0] = 4000 - channels[0];   //reverse
-          servos[1] = channels[1] + 2000;
-          servos[2] = channels[2] + 2000;
-          servos[3] = channels[3] + 2000;
+
+          /*
+          servos[0] = channels[0] + 2000;   //normal
+          //servos[0] = 4000 - channels[0];   //reverse
+          servos[1] = channels[0] + 2000;
+          servos[2] = channels[0] + 2000;
+          servos[3] = channels[0] + 2000;
+          */
+
+
+          /*
+          diffroll = gy[x] * 4.0f - (float)channels[1] + 1000.0f;
+          i_diffroll = roundf(diffroll * Kp);
+          //sprintf(buf, "channels[1]: %d\n", channels[1]);
+          sprintf(buf, "diffroll: %ld\n", i_diffroll);
+          */
+
+          if ( channels[4] < 1200)
+          {
+              servos[0] = 2000;
+	  		  servos[1] = 2000;
+			  servos[2] = 2000;
+			  servos[3] = 2000;
+          }
+          else
+          {
+              // just attitude hold mode
+              diffroll = gy[x] * 4.0f - (float)channels[1] + 1000.0f;
+              diffnick = gy[y] * 4.0f - (float)channels[2] + 1000.0f;
+              diffgier = gy[z] * 4.0f + (float)channels[3] - 1000.0f; // gier control reversed
+
+              thrust_set = (int16_t) channels[0] + 2000;
+              roll_set   = pid(x, diffroll, RKp, RKi, RKd, 2.5f);
+              nick_set   = pid(y, diffnick, NKp, NKi, NKd, 2.5f);
+		      gier_set   = pid(z, diffgier, GKp, GKi, GKd, 2.5f);
+
+		      control(thrust_set, roll_set, nick_set, gier_set);
+
+          }
+
+		  //sprintf(buf, "servos[0]: %d\n", servos[0]);
 
           HAL_ADCEx_Calibration_Start(&hadc1);
           if ( HAL_ADC_Start(&hadc1) == HAL_OK )
@@ -399,6 +471,8 @@ int main(void)
           {
               HAL_UART_ERROR = 0;
           }
+
+          //CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
 
       }
 
@@ -567,6 +641,72 @@ void SystemClock_Config(void)
 
 /* USER CODE BEGIN 4 */
 
+int16_t pid(uint8_t axis, float error, float Kp, float Ki, float Kd, float dt)
+{
+	float derivative = 0;
+    float output_f = 0;
+    int16_t output = 0;
+    static float last_derivative[3];
+    static float last_error[3];
+    static float integrator[3];
+
+    dt  /= 1000.0f;
+
+    // P
+    output_f += error * Kp;
+
+    integrator[axis]  += (error * Ki) * dt;
+    if (integrator[axis] < -200)
+    {
+        integrator[axis] = -200;
+    }
+    else if (integrator[axis] > 200)
+    {
+        integrator[axis] = 200;
+    }
+
+    // I
+    output_f += integrator[axis];
+
+	derivative = (error - last_error[axis]) / dt;
+	// DT1
+    derivative = last_derivative[axis] + ( ( dt / (RC + dt ) ) * ( derivative - last_derivative[axis]) );
+
+    last_error[axis]         = error;
+    last_derivative[axis]    = derivative;
+
+    // DT1
+    output_f  += Kd * derivative;
+
+    output = roundf(output_f);
+
+    return output;
+}
+
+void control(int16_t thrust_set, int16_t roll_set, int16_t nick_set, int16_t gier_set)
+{
+	servos[3] = thrust_set - roll_set + nick_set + gier_set;
+	servos[2] = thrust_set + roll_set + nick_set - gier_set;
+	servos[0] = thrust_set - roll_set - nick_set - gier_set;
+	servos[1] = thrust_set + roll_set - nick_set + gier_set;
+
+	/*
+	Mapping:
+
+	normal:
+	servos[0] Motor front left  CCW
+	servos[1] Motor front right CW
+	servos[2] Motor rear left   CW
+	servos[3] Motor rear right  CCW
+
+	connected:
+	servos[0] Motor rear left   CW
+	servos[1] Motor rear right  CCW
+	servos[2] Motor front right CW
+	servos[3] Motor front left  CCW
+	*/
+
+}
 
 /* USER CODE END 4 */
 

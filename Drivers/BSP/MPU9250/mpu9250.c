@@ -4,8 +4,8 @@
 
 static float invSqrt(float x);
 
-#define twoKpDef        (2.5f * 0.5f)   // 2 * proportional gain
-#define twoKiDef        (2.0f * 0.0f)   // 2 * integral gain
+#define twoKpDef        (2.0f * 8.0f)   // 2 * proportional gain
+#define twoKiDef        (2.0f * 0.8f)   // 2 * integral gain
 
 volatile float twoKp = twoKpDef;                                             // 2 * proportional gain (Kp)
 volatile float twoKi = twoKiDef;                                             // 2 * integral gain (Ki)
@@ -210,20 +210,6 @@ void BSP_MPU_read_acc()
     }
 }
 
-/*
-static float invSqrt(float x)
-{
-	float halfx = 0.5f * x;
-	float y = x;
-	long i = *(long*)&y;
-	i = 0x5f3759df - (i>>1);
-	y = *(float*)&i;
-	y = y * (1.5f - (halfx * y * y));
-	//y = y * (1.5f - (halfx * y * y));
-	return y;
-}
-*/
-
 static float invSqrt(float x)
 {
     union
@@ -251,7 +237,7 @@ void BSP_MPU_updateIMU(float ax, float ay, float az, float gx, float gy, float g
 		float halfex, halfey, halfez;
 		float qa, qb, qc;
 
-		dt /= 1000;
+		dt /= 1000.0f;
 
 		// degrees to radiant conversion
 		gx *= 0.01745;

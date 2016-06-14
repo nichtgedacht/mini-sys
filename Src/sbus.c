@@ -1,8 +1,8 @@
 #include "sbus.h"
 
-volatile uint8_t uart_data[26]={0};
+volatile uint8_t uart_data[26]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 volatile uint8_t HAL_UART_ERROR=0;
-volatile uint16_t channels[16]={1000};
+volatile uint16_t channels[16]={1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000};
 volatile uint16_t SBUS_ERROR=0;
 
 /**
