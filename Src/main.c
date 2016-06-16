@@ -104,22 +104,16 @@ float last_derivative[3];
 float last_error[3];
 float integrator[3];
 
-const float RKp=0.35f;
-const float RKi=3.0f;
-//const float RKi=16.0f;
-const float RKd=0.0021f;
-//const float RKd=0.0024f;
+const float RKp=0.24f;
+const float RKi=1.5f;
+const float RKd=0.00144f;
 
-const float NKp=0.35f;
-const float NKi=3.0f;
-//const float NKi=16.0f;
-const float NKd=0.0021f;
-//const float NKd=0.0024f;
+const float NKp=0.24f;
+const float NKi=1.5f;
+const float NKd=0.00144f;
 
 const float GKp=1.5f;
-//const float GKi=0.0f;
-const float GKi=2.5f;
-//const float GKd=0.00f;
+const float GKi=1.5f;
 const float GKd=0.001f;
 
 const float RC = 0.007958;  // 1/(2*PI*_fCut fcut = 20 from Ardupilot
