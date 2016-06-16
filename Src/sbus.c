@@ -4,6 +4,7 @@ volatile uint8_t uart_data[26]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 volatile uint8_t HAL_UART_ERROR=0;
 volatile uint16_t channels[16]={1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000};
 volatile uint16_t SBUS_ERROR=0;
+volatile uint8_t SBUS_RECEIVED=0;
 
 /**
   * @brief  Rx frame transfer completed callbacks, get channel values
@@ -34,6 +35,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	    channels[13] = ((uart_data[18]>>7|uart_data[19]<<1|uart_data[20]<<9)  & 0x07FF);
 	    channels[14] = ((uart_data[20]>>2|uart_data[21]<<6)                   & 0x07FF);
 	    channels[15] = ((uart_data[21]>>5|uart_data[22]<<3)                   & 0x07FF);
+
+	    SBUS_RECEIVED = 1;
     }
 	else
 	{

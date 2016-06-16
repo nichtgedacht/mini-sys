@@ -61,6 +61,7 @@
 /* Private variables ---------------------------------------------------------*/
 
 uint8_t counter = 0;
+uint32_t failsafe_counter = 0;
 char* pDirectoryFiles[MAX_BMP_FILES];
 uint8_t res;
 FRESULT fres;
@@ -99,17 +100,27 @@ int16_t gier_set = 0;
 
 //int32_t i_diffroll;
 
-const float RKp=1.0f;
-const float RKi=0.0f;
-const float RKd=0.0f;
+float last_derivative[3];
+float last_error[3];
+float integrator[3];
 
-const float NKp=1.0f;
-const float NKi=0.0f;
-const float NKd=0.0f;
+const float RKp=0.35f;
+const float RKi=3.0f;
+//const float RKi=16.0f;
+const float RKd=0.0021f;
+//const float RKd=0.0024f;
 
-const float GKp=1.0f;
-const float GKi=0.0f;
-const float GKd=0.0f;
+const float NKp=0.35f;
+const float NKi=3.0f;
+//const float NKi=16.0f;
+const float NKd=0.0021f;
+//const float NKd=0.0024f;
+
+const float GKp=1.5f;
+//const float GKi=0.0f;
+const float GKi=2.5f;
+//const float GKd=0.00f;
+const float GKd=0.001f;
 
 const float RC = 0.007958;  // 1/(2*PI*_fCut fcut = 20 from Ardupilot
 
@@ -165,6 +176,7 @@ int main(void)
   //############### MPU Test init ########################################
   // no sample rate divider, accel: lowpass filter bandwidth 460 Hz, Rate 1kHz, gyro:  lowpass filter bandwidth 250 Hz
   BSP_MPU_Init(0, 2, 0);
+  HAL_Delay(2000);
   BSP_MPU_GyroCalibration();
   //############ end MPU Test init #######################################
 
@@ -251,7 +263,7 @@ int main(void)
       	  BSP_LCD_DisplayStringAtLine(0, (uint8_t *)buf);
 
       	  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-      	  BSP_LCD_FillRect(0, 1 * 12, BSP_LCD_GetXSize() - 50, 12);
+      	  BSP_LCD_FillRe0ct(0, 1 * 12, BSP_LCD_GetXSize() - 50, 12);
       	  sprintf(buf, "ch_2: %d", channels[1]);
       	  BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
       	  BSP_LCD_DisplayStringAtLine(1, (uint8_t *)buf);
@@ -328,11 +340,19 @@ int main(void)
 
       //############### MPU Test #########################################
 
-      if ( PeriodElapsed == 1) // 400 Hz
+      if ( PeriodElapsed == 1) // back to 200 Hz otherwise water bubble is to slow to get around
       {
     	  PeriodElapsed = 0;
 
     	  counter++;
+    	  failsafe_counter++;
+
+    	  if (SBUS_RECEIVED == 1)
+    	  {
+    		  SBUS_RECEIVED = 0;
+    		  failsafe_counter = 0;
+
+    	  }
 
           tick = HAL_GetTick();
           dt = tick - prev_tick;
@@ -341,19 +361,21 @@ int main(void)
           BSP_MPU_read_rot();
           BSP_MPU_read_acc();
 
-          BSP_MPU_updateIMU(ac[x], ac[y], ac[z], gy[x], gy[y], gy[z], 2.5f);
+          BSP_MPU_updateIMU(ac[x], ac[y], ac[z], gy[x], gy[y], gy[z], 5.0f);
           BSP_MPU_getEuler(&roll, &pitch, &yaw);
 
           //free_ram = (0x20000000 + 1024 * 20) - (uint32_t) sbrk((int)0);
           //sprintf(buf, "free: %ld\n", free_ram);
 
-          //sprintf(buf, "dt: %ld\n", dt );
+          sprintf(buf, "dt: %ld\n", dt );
           //sprintf(buf, "%3.3f,%3.3f,%3.3f\n", yaw, pitch, roll);
           //sprintf(buf, "%3.3f,%3.3f,%3.3f,%3.3f,%3.3f,%3.3f\n", ac[x], ac[y], ac[z], gy[x], gy[y], gy[z]);
 
 
       //########### moving circle by gravity, little game ################
       //########### set rotation above according to IMU orientation ######
+      //########### it's a 	water bubble now #############################
+
 
           if ( counter > 5)
           {
@@ -363,13 +385,25 @@ int main(void)
         	  BSP_LCD_DrawCircle(xp, yp , 5);
 
               BSP_LCD_SetTextColor(LCD_COLOR_RED);
-              BSP_LCD_DrawRect(74, 58, 13, 13);
+              BSP_LCD_DrawHLine(75, 64, 10);
+              BSP_LCD_DrawVLine(80, 59, 10);
 
-       	      vx += sinf(pitch)*20.0;
-       	      vy += sinf(roll)*20.0;
+            //  BSP_LCD_DrawCircle(80, 64 , 8);
 
-   	          xp += roundf(vx);
-   	          yp += roundf(vy);
+              //BSP_LCD_DrawRect(74, 58, 13, 13);
+
+
+       	      //vx += sinf(pitch)*20.0;
+       	      //vy += sinf(roll)*20.0;
+
+       	      vx = sinf(pitch)*300.0f;
+       	      vy = sinf(roll)*300.0f;
+
+   	          //xp += roundf(vx);
+   	          //yp += roundf(vy);
+
+       	      xp = roundf(vx) + 80;
+		      yp = roundf(vy) + 64;
 
     	      if ( xp < 5 ) {
     		      xp = 5;
@@ -393,7 +427,6 @@ int main(void)
 
           }
 
-    	  // HAL_Delay(6); //6ms time left for keeping 100 Hz refresh
 
           /*
           if ( xp == 80 && yp == 64 )
@@ -428,12 +461,21 @@ int main(void)
           sprintf(buf, "diffroll: %ld\n", i_diffroll);
           */
 
-          if ( channels[4] < 1200)
+          if ( channels[4] < 1200 || failsafe_counter > 40)
           {
               servos[0] = 2000;
 	  		  servos[1] = 2000;
 			  servos[2] = 2000;
 			  servos[3] = 2000;
+			  last_derivative[x]=0.0f;
+			  last_derivative[y]=0.0f;
+			  last_derivative[z]=0.0f;
+			  last_error[x]=0.0f;
+			  last_error[y]=0.0f;
+			  last_error[z]=0.0f;
+			  integrator[x]=0.0f;
+			  integrator[y]=0.0f;
+			  integrator[z]=0.0f;
           }
           else
           {
@@ -443,9 +485,9 @@ int main(void)
               diffgier = gy[z] * 4.0f + (float)channels[3] - 1000.0f; // gier control reversed
 
               thrust_set = (int16_t) channels[0] + 2000;
-              roll_set   = pid(x, diffroll, RKp, RKi, RKd, 2.5f);
-              nick_set   = pid(y, diffnick, NKp, NKi, NKd, 2.5f);
-		      gier_set   = pid(z, diffgier, GKp, GKi, GKd, 2.5f);
+              roll_set   = pid(x, diffroll, RKp, RKi, RKd, 5.0f);
+              nick_set   = pid(y, diffnick, NKp, NKi, NKd, 5.0f);
+		      gier_set   = pid(z, diffgier, GKp, GKi, GKd, 5.0f);
 
 		      control(thrust_set, roll_set, nick_set, gier_set);
 
@@ -646,9 +688,9 @@ int16_t pid(uint8_t axis, float error, float Kp, float Ki, float Kd, float dt)
 	float derivative = 0;
     float output_f = 0;
     int16_t output = 0;
-    static float last_derivative[3];
-    static float last_error[3];
-    static float integrator[3];
+ //   static float last_derivative[3];
+ //   static float last_error[3];
+ //   static float integrator[3];
 
     dt  /= 1000.0f;
 
@@ -656,13 +698,13 @@ int16_t pid(uint8_t axis, float error, float Kp, float Ki, float Kd, float dt)
     output_f += error * Kp;
 
     integrator[axis]  += (error * Ki) * dt;
-    if (integrator[axis] < -200)
+    if (integrator[axis] < -400)
     {
-        integrator[axis] = -200;
+        integrator[axis] = -400;
     }
-    else if (integrator[axis] > 200)
+    else if (integrator[axis] > 400)
     {
-        integrator[axis] = 200;
+        integrator[axis] = 400;
     }
 
     // I
