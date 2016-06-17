@@ -1,6 +1,6 @@
 [PreviousGenFiles]
-HeaderPath=/array_data01/STM32-21/mini-sys/Inc
-SourcePath=/array_data01/STM32-21/mini-sys/Src
+HeaderPath=/array_data01/STM32-22/mini-sys/Inc
+SourcePath=/array_data01/STM32-22/mini-sys/Src
 SourceFiles=gpio.h;adc.h;ffconf.h;user_diskio.h;fatfs.h;rtc.h;spi.h;usb_device.h;usbd_conf.h;usbd_desc.h;usbd_cdc_if.h;stm32f1xx_it.h;stm32f1xx_hal_conf.h;mxconstants.h;gpio.c;adc.c;user_diskio.c;fatfs.c;rtc.c;spi.c;usb_device.c;usbd_conf.c;usbd_desc.c;usbd_cdc_if.c;stm32f1xx_it.c;stm32f1xx_hal_msp.c;stm32f1xx_hal_timebase_TIM.c;main.c;usart.h;usart.c;tim.h;tim.c;dma.h;dma.c;
 HeaderFiles=gpio.h;adc.h;ffconf.h;user_diskio.h;fatfs.h;rtc.h;spi.h;usb_device.h;usbd_conf.h;usbd_desc.h;usbd_cdc_if.h;stm32f1xx_it.h;stm32f1xx_hal_conf.h;mxconstants.h;usart.h;tim.h;dma.h;
 
