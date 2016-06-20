@@ -27,7 +27,7 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
             }
             TIM2->CCR1 = servos[0];
             break;
-        case HAL_TIM_ACTIVE_CHANNEL_2:    // Pin 10 (maple) Motor rear right
+        case HAL_TIM_ACTIVE_CHANNEL_2:    // Pin 10 (maple) Motor front right
             if (servos[1] > 4000)
             {
                 servos[1] = 4000;
@@ -38,7 +38,7 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
             }
             TIM2->CCR2 = servos[1];
             break;
-        case HAL_TIM_ACTIVE_CHANNEL_3:    // Pin 9 (maple) Motor front right
+        case HAL_TIM_ACTIVE_CHANNEL_3:    // Pin 9 (maple) Motor rear right
             if (servos[2] > 4000)
             {
                 servos[2] = 4000;
@@ -66,7 +66,7 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
     }
 }
 
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) //400 Hz, period 2.5 ms
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) //200 Hz, period 5 ms
 {
     if (htim == &htim2)
     {

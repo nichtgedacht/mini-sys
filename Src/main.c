@@ -361,7 +361,7 @@ int main(void)
             //free_ram = (0x20000000 + 1024 * 20) - (uint32_t) sbrk((int)0);
             //sprintf(buf, "free: %ld\n", free_ram);
 
-            sprintf(buf, "dt: %ld\n", dt);
+            //sprintf(buf, "dt: %ld\n", dt);
             //sprintf(buf, "%3.3f,%3.3f,%3.3f\n", yaw, pitch, roll);
             //sprintf(buf, "%3.3f,%3.3f,%3.3f,%3.3f,%3.3f,%3.3f\n", ac[x], ac[y], ac[z], gy[x], gy[y], gy[z]);
 
