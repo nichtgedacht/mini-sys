@@ -7,6 +7,7 @@ Playground to start with minimum STM32F103C8 boards and ST7735 driven TFT displa
 * Code for IMU MPU-9250 with examples
 * Code for Futaba S-Bus with examples
 * Shows examples of ADC and USB CDC usage
+* Flies as quadrocopter now
 * Based on ST Firmware from F1 and F4 archives (see each file for STM COPYRIGHT)
 * Initial created by CubeMX (currently 4.15)
 
@@ -31,3 +32,11 @@ Hints for usage:
  In Project Explorer right click on top (mini-sys) -> Properties -> C/C++ General (Tree) -> Indexer -> click on link "Configure Workspace Settings" (new window) -> uncheck "index unused headers" -> Apply
 * Optional: Install CubeMX (4.15) and load project to be able to modify the configuration the easy way.
 * If all code is used, now it fits only to the STM32F103CBT6 (maple mini clone) with 128k flash. You have to edit STM32F103C8Ty_FLASH.ld (64K -> 128K) after having recreated the project with CubeMX
+
+Pictures:
+
+![alt tag](https://cloud.githubusercontent.com/assets/18667858/16275572/e2bb3886-38aa-11e6-898e-e376d7281282.JPG)
+
+![alt tag](https://cloud.githubusercontent.com/assets/18667858/16275622/184d1b90-38ab-11e6-88ed-6a35a860febd.JPG)
+
+![alt tag](https://cloud.githubusercontent.com/assets/18667858/16275660/3ec1c672-38ab-11e6-939e-401b00249a1e.JPG)
