@@ -338,7 +338,6 @@ int main(void)
         if (PeriodElapsed == 1) // back to 200 Hz otherwise water bubble is to slow to get around
         {
             PeriodElapsed = 0;
-
             counter++;
             failsafe_counter++;
 
@@ -348,12 +347,44 @@ int main(void)
                 failsafe_counter = 0;
             }
 
+            BSP_MPU_read_rot();
+            BSP_MPU_read_acc();
+
+            if (channels[4] < 1200 || failsafe_counter > 40)
+            {
+                servos[0] = 2000;
+                servos[1] = 2000;
+                servos[2] = 2000;
+                servos[3] = 2000;
+                last_derivative[x] = 0.0f;
+                last_derivative[y] = 0.0f;
+                last_derivative[z] = 0.0f;
+                last_error[x] = 0.0f;
+                last_error[y] = 0.0f;
+                last_error[z] = 0.0f;
+                integrator[x] = 0.0f;
+                integrator[y] = 0.0f;
+                integrator[z] = 0.0f;
+            }
+            else
+            {
+                // just attitude hold mode
+                diffroll = gy[x] * 4.0f - (float) channels[1] + 1000.0f;
+                diffnick = gy[y] * 4.0f - (float) channels[2] + 1000.0f;
+                diffgier = gy[z] * 4.0f + (float) channels[3] - 1000.0f; // control reversed, gy right direction
+
+                thrust_set = (int16_t) channels[0] + 2000;
+                roll_set = pid(x, diffroll, RKp, RKi, RKd, 5.0f);
+                nick_set = pid(y, diffnick, NKp, NKi, NKd, 5.0f);
+                gier_set = pid(z, diffgier, GKp, GKi, GKd, 5.0f);
+
+                control(thrust_set, roll_set, nick_set, gier_set);
+                // assured finished before first servo update by HAL_TIM_PWM_PulseFinishedCallback
+            }
+
             tick = HAL_GetTick();
             dt = tick - prev_tick;
             prev_tick = tick;
-
-            BSP_MPU_read_rot();
-            BSP_MPU_read_acc();
 
             BSP_MPU_updateIMU(ac[x], ac[y], ac[z], gy[x], gy[y], gy[z], 5.0f);
             BSP_MPU_getEuler(&roll, &pitch, &yaw);
@@ -412,49 +443,6 @@ int main(void)
 
             //############ end water bubble ####################################
 
-            if (channels[4] < 1200 || failsafe_counter > 40)
-            {
-                servos[0] = 2000;
-                servos[1] = 2000;
-                servos[2] = 2000;
-                servos[3] = 2000;
-                last_derivative[x] = 0.0f;
-                last_derivative[y] = 0.0f;
-                last_derivative[z] = 0.0f;
-                last_error[x] = 0.0f;
-                last_error[y] = 0.0f;
-                last_error[z] = 0.0f;
-                integrator[x] = 0.0f;
-                integrator[y] = 0.0f;
-                integrator[z] = 0.0f;
-            }
-            else
-            {
-                // just attitude hold mode
-                diffroll = gy[x] * 4.0f - (float) channels[1] + 1000.0f;
-                diffnick = gy[y] * 4.0f - (float) channels[2] + 1000.0f;
-                diffgier = gy[z] * 4.0f + (float) channels[3] - 1000.0f; // control reversed, gy right direction
-
-                thrust_set = (int16_t) channels[0] + 2000;
-                roll_set = pid(x, diffroll, RKp, RKi, RKd, 5.0f);
-                nick_set = pid(y, diffnick, NKp, NKi, NKd, 5.0f);
-                gier_set = pid(z, diffgier, GKp, GKi, GKd, 5.0f);
-
-                control(thrust_set, roll_set, nick_set, gier_set);
-
-            }
-
-            if (volt1 < 10.0f || channels[6] > 1000) // beeper
-            {
-                HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
-            }
-            else
-            {
-                HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
-            }
-
-            //sprintf(buf, "servos[0]: %d\n", servos[0]);
-
             HAL_ADCEx_Calibration_Start(&hadc1);
             if (HAL_ADC_Start(&hadc1) == HAL_OK)
             {
@@ -464,6 +452,15 @@ int main(void)
                 }
 
                 HAL_ADC_Stop(&hadc1);
+            }
+
+            if (volt1 < 10.0f || channels[6] > 1000) // beeper
+            {
+                HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
+            }
+            else
+            {
+                HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
             }
 
             HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_1);
