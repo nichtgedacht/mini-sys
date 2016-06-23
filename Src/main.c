@@ -581,11 +581,11 @@ void control(int16_t thrust_set, int16_t roll_set, int16_t nick_set, int16_t gie
      Mapping:
 
      normal:
-     thrust  roll-right  nick-down  gier-right (gier control reversed in software)
-     servos[0] Motor front left  CCW     +         +          -           -
-     servos[1] Motor front right CW      +         -          -           +
-     servos[2] Motor rear left   CW      +         +          +           -
-     servos[3] Motor rear right  CCW     +         -          +           +
+                                        thrust  roll-right  nick-down  gier-right
+     servos[0] Motor front left  CCW     +         +          -           +
+     servos[1] Motor front right CW      +         -          -           -
+     servos[2] Motor rear left   CW      +         +          +           +
+     servos[3] Motor rear right  CCW     +         -          +           -
 
      connected:
      servos[0] Motor rear left   CW
