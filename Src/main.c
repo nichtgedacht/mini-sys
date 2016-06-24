@@ -52,6 +52,7 @@
 #include "math.h"
 #include "sbus.h"
 #include "servo.h"
+#include "controller.h"
 
 /* USER CODE END Includes */
 
@@ -85,43 +86,9 @@ uint8_t whoami;
 uint8_t mpu_res;
 uint32_t tick, prev_tick, dt, dtx;
 float roll, pitch, yaw;
-float bla;
 int xp, yp;
 float vx = 0.0f, vy = 0.0f;
 HAL_StatusTypeDef hal_res;
-
-float diffroll;
-float diffnick;
-float diffgier;
-
-int16_t thrust_set = 0;
-int16_t roll_set = 0;
-int16_t nick_set = 0;
-int16_t gier_set = 0;
-
-//int32_t i_diffroll;
-
-float last_derivative[3];
-float last_error[3];
-float integrator[3];
-
-const float RKp = 0.24f;
-const float RKi = 1.5f;
-const float RKd = 0.002f;
-//const float RKd = 0.0070f;
-//const float RKd = 0.00144f;
-
-const float NKp = 0.24f;
-const float NKi = 1.5f;
-const float NKd = 0.002f;
-//const float NKd = 0.0070f;
-//const float NKd = 0.00144f;
-
-const float GKp = 1.5f;
-const float GKi = 1.5f;
-const float GKd = 0.001f;
-
-const float RC = 0.007958;  // 1/(2*PI*_fCut fcut = 20 from Ardupilot
 
 /* USER CODE END PV */
 
@@ -159,24 +126,22 @@ int main(void)
     MX_GPIO_Init();
     MX_ADC1_Init();
     MX_USB_DEVICE_Init();
+    MX_SPI2_Init();
     MX_USART1_UART_Init();
     MX_TIM2_Init();
 
     /* USER CODE BEGIN 2 */
 
     MX_FATFS_Init();
-    MX_SPI2_Init();
 
     // Request first 25 bytes s-bus frame from uart, uart_data becomes filled per interrupts
     // Get callback if ready Callback restarts request
     HAL_UART_Receive_IT(&huart1, (uint8_t*) uart_data, 25);
 
-    //############### MPU Test init ########################################
     // no sample rate divider, accel: lowpass filter bandwidth 460 Hz, Rate 1kHz, gyro:  lowpass filter bandwidth 250 Hz
     BSP_MPU_Init(0, 2, 0);
     HAL_Delay(2000);
     BSP_MPU_GyroCalibration();
-    //############ end MPU Test init #######################################
 
     BSP_LCD_Init();
     BSP_LCD_Clear(LCD_COLOR_BLACK);
@@ -246,95 +211,6 @@ int main(void)
 
         /* USER CODE BEGIN 3 */
 
-        /*
-         //############ s-bus test ##########################################
-         //########### set rotation to 0 or 2 above #########################
-         BSP_LCD_SetRotation(0);
-         BSP_LCD_SetFont(&Font12);
-
-         // show channels 1-12
-         BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-         BSP_LCD_FillRect(0, 0 * 12, BSP_LCD_GetXSize() - 50, 12);
-         sprintf(buf, "ch_1: %d", channels[0]);
-         BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-         BSP_LCD_DisplayStringAtLine(0, (uint8_t *) buf);
-
-         BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-         BSP_LCD_FillRect(0, 1 * 12, BSP_LCD_GetXSize() - 50, 12);
-         sprintf(buf, "ch_2: %d", channels[1]);
-         BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-         BSP_LCD_DisplayStringAtLine(1, (uint8_t *) buf);
-
-         BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-         BSP_LCD_FillRect(0, 2 * 12, BSP_LCD_GetXSize() - 50, 12);
-         sprintf(buf, "ch_3: %d", channels[2]);
-         BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-         BSP_LCD_DisplayStringAtLine(2, (uint8_t *) buf);
-
-         BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-         BSP_LCD_FillRect(0, 3 * 12, BSP_LCD_GetXSize() - 50, 12);
-         sprintf(buf, "ch_4: %d", channels[3]);
-         BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-         BSP_LCD_DisplayStringAtLine(3, (uint8_t *) buf);
-
-         BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-         BSP_LCD_FillRect(0, 4 * 12, BSP_LCD_GetXSize() - 50, 12);
-         sprintf(buf, "ch_5: %d", channels[4]);
-         BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-         BSP_LCD_DisplayStringAtLine(4, (uint8_t *) buf);
-
-         BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-         BSP_LCD_FillRect(0, 5 * 12, BSP_LCD_GetXSize() - 50, 12);
-         sprintf(buf, "ch_6: %d", channels[5]);
-         BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-         BSP_LCD_DisplayStringAtLine(5, (uint8_t *) buf);
-
-         BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-         BSP_LCD_FillRect(0, 6 * 12, BSP_LCD_GetXSize() - 50, 12);
-         sprintf(buf, "ch_7: %d", channels[6]);
-         BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-         BSP_LCD_DisplayStringAtLine(6, (uint8_t *) buf);
-
-         BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-         BSP_LCD_FillRect(0, 7 * 12, BSP_LCD_GetXSize() - 50, 12);
-         sprintf(buf, "ch_8: %d", channels[7]);
-         BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-         BSP_LCD_DisplayStringAtLine(7, (uint8_t *) buf);
-
-         BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-         BSP_LCD_FillRect(0, 8 * 12, BSP_LCD_GetXSize() - 50, 12);
-         sprintf(buf, "ch_9: %d", channels[8]);
-         BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-         BSP_LCD_DisplayStringAtLine(8, (uint8_t *) buf);
-
-         BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-         BSP_LCD_FillRect(0, 9 * 12, BSP_LCD_GetXSize() - 50, 12);
-         sprintf(buf, "ch_10: %d", channels[9]);
-         BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-         BSP_LCD_DisplayStringAtLine(9, (uint8_t *) buf);
-
-         BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-         BSP_LCD_FillRect(0, 10 * 12, BSP_LCD_GetXSize() - 50, 12);
-         sprintf(buf, "ch_11: %d", channels[10]);
-         BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-         BSP_LCD_DisplayStringAtLine(10, (uint8_t *) buf);
-
-         BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-         BSP_LCD_FillRect(0, 11 * 12, BSP_LCD_GetXSize() - 50, 12);
-         sprintf(buf, "ch_12: %d", channels[11]);
-         BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-         BSP_LCD_DisplayStringAtLine(11, (uint8_t *) buf);
-
-         BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-         BSP_LCD_FillRect(0, 12 * 12, BSP_LCD_GetXSize() - 50, 12);
-         sprintf(buf, "ERROR: %d", SBUS_ERROR);
-         BSP_LCD_SetTextColor(LCD_COLOR_RED);
-         BSP_LCD_DisplayStringAtLine(12, (uint8_t *) buf);
-
-         //############ end s-bus test ######################################
-         */
-
-        //############### MPU Test #########################################
         if (PeriodElapsed == 1) // back to 200 Hz otherwise water bubble is to slow to get around
         {
             PeriodElapsed = 0;
@@ -395,10 +271,11 @@ int main(void)
             //sprintf(buf, "dt: %ld\n", dt);
             //sprintf(buf, "%3.3f,%3.3f,%3.3f\n", yaw, pitch, roll);
             //sprintf(buf, "%3.3f,%3.3f,%3.3f,%3.3f,%3.3f,%3.3f\n", ac[x], ac[y], ac[z], gy[x], gy[y], gy[z]);
+            //sprintf(buf, "%d %d %d %d\n", servos[0], servos[1], servos[2], servos[3]);
 
             //########### water bubble #########################################
 
-            if (counter > 5)
+            if (counter == 6)
             {
                 counter = 0;
 
@@ -443,28 +320,33 @@ int main(void)
 
             //############ end water bubble ####################################
 
-            HAL_ADCEx_Calibration_Start(&hadc1);
-            if (HAL_ADC_Start(&hadc1) == HAL_OK)
+            if (counter == 5)
             {
-                if (HAL_ADC_PollForConversion(&hadc1, 100) == HAL_OK)
+                HAL_ADCEx_Calibration_Start(&hadc1);
+                if (HAL_ADC_Start(&hadc1) == HAL_OK)
                 {
-                    volt1 = (HAL_ADC_GetValue(&hadc1)) / 219.84f; // calibrate
+                    if (HAL_ADC_PollForConversion(&hadc1, 100) == HAL_OK)
+                    {
+                        volt1 = (HAL_ADC_GetValue(&hadc1)) / 219.84f; // calibrate, resistors 8.2k 1.8k
+                    }
+                    HAL_ADC_Stop(&hadc1);
                 }
 
-                HAL_ADC_Stop(&hadc1);
+                if (volt1 < 10.0f || channels[6] > 1000) // beeper
+                {
+                    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
+                }
+                else
+                {
+                    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
+                }
             }
 
-            if (volt1 < 10.0f || channels[6] > 1000) // beeper
+            if (counter == 4)
             {
-                HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
+                HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_1);
+                HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
             }
-            else
-            {
-                HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
-            }
-
-            HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_1);
-            HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
 
             if (HAL_UART_ERROR != 0)
             {
@@ -530,71 +412,6 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-
-int16_t pid(uint8_t axis, float error, float Kp, float Ki, float Kd, float dt)
-{
-    float derivative = 0;
-    float output_f = 0;
-    int16_t output = 0;
-
-    dt /= 1000.0f;
-
-// P
-    output_f += error * Kp;
-
-    integrator[axis] += (error * Ki) * dt;
-    if (integrator[axis] < -400)
-    {
-        integrator[axis] = -400;
-    }
-    else if (integrator[axis] > 400)
-    {
-        integrator[axis] = 400;
-    }
-
-// I
-    output_f += integrator[axis];
-
-    derivative = (error - last_error[axis]) / dt;
-// DT1
-    derivative = last_derivative[axis] + ((dt / (RC + dt)) * (derivative - last_derivative[axis]));
-
-    last_error[axis] = error;
-    last_derivative[axis] = derivative;
-
-// DT1
-    output_f += Kd * derivative;
-
-    output = roundf(output_f);
-
-    return output;
-}
-
-void control(int16_t thrust_set, int16_t roll_set, int16_t nick_set, int16_t gier_set)
-{
-    servos[3] = thrust_set - roll_set + nick_set + gier_set;  // Motor front left  CCW
-    servos[1] = thrust_set + roll_set + nick_set - gier_set;  // Motor front right CW
-    servos[0] = thrust_set - roll_set - nick_set - gier_set;  // Motor rear left   CW
-    servos[2] = thrust_set + roll_set - nick_set + gier_set;  // Motor rear right  CCW
-
-    /*
-     Mapping:
-
-     normal:
-                                        thrust  roll-right  nick-down  gier-right
-     servos[0] Motor front left  CCW     +         +          -           +
-     servos[1] Motor front right CW      +         -          -           -
-     servos[2] Motor rear left   CW      +         +          +           +
-     servos[3] Motor rear right  CCW     +         -          +           -
-
-     connected:
-     servos[0] Motor rear left   CW
-     servos[2] Motor rear right  CCW
-     servos[1] Motor front right CW
-     servos[3] Motor front left  CCW
-     */
-
-}
 
 /* USER CODE END 4 */
 

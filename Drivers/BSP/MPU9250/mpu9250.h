@@ -11,14 +11,10 @@
 
 enum { x, y, z };
 
-float acc_divider;
-float gyro_divider;
-float gy[3];
-float ac[3];
+extern float gy[3];
+extern float ac[3];
 
-extern volatile float twoKp;                    // 2 * proportional gain (Kp)
-extern volatile float twoKi;                    // 2 * integral gain (Ki)
-extern volatile float q0, q1, q2, q3;           // quaternion of sensor frame relative to auxiliary frame
+extern float q0, q1, q2, q3;           // quaternion of sensor frame relative to auxiliary frame
 
 void    MPU_IO_Init(void);
 uint8_t MPU_IO_WriteReadReg(uint8_t MPUReg, uint8_t arg);
@@ -235,5 +231,9 @@ void    BSP_MPU_GyroCalibration(void);
 #define MPU9250T_85degC   ((float)0.002995177763f) // 0.002995177763 degC/LSB
 
 #define     Magnetometer_Sensitivity_Scale_Factor ((float)0.15f)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __MPU9250_H*/

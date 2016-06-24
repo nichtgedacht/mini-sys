@@ -7,7 +7,11 @@
 
 #include "tim.h"
 
-extern volatile uint16_t servos[4];
-extern volatile uint8_t PeriodElapsed;
+volatile uint16_t servos[4];
+volatile uint8_t PeriodElapsed;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __SERVO_H*/
