@@ -89,6 +89,7 @@ float roll, pitch, yaw;
 int xp, yp;
 float vx = 0.0f, vy = 0.0f;
 HAL_StatusTypeDef hal_res;
+uint32_t idle_counter;
 
 /* USER CODE END PV */
 
@@ -272,10 +273,12 @@ int main(void)
             //sprintf(buf, "%3.3f,%3.3f,%3.3f\n", yaw, pitch, roll);
             //sprintf(buf, "%3.3f,%3.3f,%3.3f,%3.3f,%3.3f,%3.3f\n", ac[x], ac[y], ac[z], gy[x], gy[y], gy[z]);
             //sprintf(buf, "%d %d %d %d\n", servos[0], servos[1], servos[2], servos[3]);
+            //sprintf(buf, "%3.3f %3.3f %3.3f %ld %ld\n", gy[x], gy[y], gy[z], dt, idle_counter);
+            idle_counter = 0;
 
             //########### water bubble #########################################
 
-            if (counter == 6)
+            if (counter == 4)
             {
                 counter = 0;
 
@@ -320,7 +323,7 @@ int main(void)
 
             //############ end water bubble ####################################
 
-            if (counter == 5)
+            if (counter == 3)
             {
                 HAL_ADCEx_Calibration_Start(&hadc1);
                 if (HAL_ADC_Start(&hadc1) == HAL_OK)
@@ -342,7 +345,7 @@ int main(void)
                 }
             }
 
-            if (counter == 4)
+            if (counter == 2)
             {
                 HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_1);
                 HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
@@ -355,6 +358,10 @@ int main(void)
 
             //CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
 
+        }
+        else
+        {
+            idle_counter++; //min value before reset > 700 with sbus running
         }
 
     } //while(1)

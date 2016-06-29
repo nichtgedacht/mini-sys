@@ -480,8 +480,8 @@ uint8_t BSP_SD_WriteBlocks(uint32_t* pData, uint32_t WriteAddr, uint16_t BlockSi
         SD_IO_WriteByte(SD_DUMMY_BYTE);
     }
 
-    if (ptr != NULL)
-        free(ptr);
+    //if (ptr != NULL)
+    //    free(ptr);
     retr = BSP_SD_OK;
 
     error: if (ptr != NULL)

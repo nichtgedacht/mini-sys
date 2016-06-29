@@ -74,6 +74,41 @@ void control(int16_t thrust_set, int16_t roll_set, int16_t nick_set, int16_t gie
     servos[0] = thrust_set - roll_set - nick_set - gier_set;  // Motor rear left   CW
     servos[2] = thrust_set + roll_set - nick_set + gier_set;  // Motor rear right  CCW
 
+    if (servos[0] > 4000)
+    {
+        servos[0] = 4000;
+    }
+    else if (servos[0] < 2000)
+    {
+        servos[0] = 2000;
+    }
+
+    if (servos[1] > 4000)
+    {
+        servos[1] = 4000;
+    }
+    else if (servos[1] < 2000)
+    {
+        servos[1] = 2000;
+    }
+
+    if (servos[2] > 4000)
+    {
+        servos[2] = 4000;
+    }
+    else if (servos[2] < 2000)
+    {
+        servos[2] = 2000;
+    }
+    if (servos[3] > 4000)
+    {
+        servos[3] = 4000;
+    }
+    else if (servos[3] < 2000)
+    {
+        servos[3] = 2000;
+    }
+
     /*
      Mapping:
 

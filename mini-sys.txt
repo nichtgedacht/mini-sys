@@ -1,6 +1,6 @@
 Configuration	mini-sys
-STM32CubeMX 	4.15.0
-Date	06/24/2016
+STM32CubeMX 	4.15.1
+Date	06/29/2016
 MCU	STM32F103C8Tx
 
 
@@ -71,7 +71,7 @@ Firmware Package Name and Version : STM32Cube FW_F1 V1.4.0
 
 Code Generation Settings : 
 STM32Cube Firmware Library Package : Copy only the necessary library files
-Generate peripheral initialization as a pair of '.c/.h' files per IP : Yes
+Generate peripheral initialization as a pair of '.c/.h' files per peripherals : Yes
 Backup previously generated files when re-generating : No
 Delete previously generated files when not re-generated : Yes
 Set all free pins as analog (to optimize the power consumption) : No

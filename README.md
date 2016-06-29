@@ -9,7 +9,7 @@ Playground to start with minimum STM32F103C8 boards and ST7735 driven TFT displa
 * Shows examples of ADC and USB CDC usage
 * Flies as quadrocopter now
 * Based on ST Firmware from F1 and F4 archives (see each file for STM COPYRIGHT)
-* Initial created by CubeMX (currently 4.15)
+* Initial created by CubeMX (currently 4.15.1)
 
 Installation ( Linux ):
 
@@ -30,7 +30,7 @@ Hints for usage:
 * Click on the run symbol.
 * Semantic error 'SysTick_IRQn' could not be resolved (cosmetics):
  In Project Explorer right click on top (mini-sys) -> Properties -> C/C++ General (Tree) -> Indexer -> click on link "Configure Workspace Settings" (new window) -> uncheck "index unused headers" -> Apply
-* Optional: Install CubeMX (4.15) and load project to be able to modify the configuration the easy way.
+* Optional: Install CubeMX (4.15.1) and load project to be able to modify the configuration the easy way.
 * If all code is used, now it fits only to the STM32F103CBT6 (maple mini clone) with 128k flash. You have to edit STM32F103C8Ty_FLASH.ld (64K -> 128K) after having recreated the project with CubeMX
 
 Pictures:
