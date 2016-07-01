@@ -346,29 +346,6 @@ void BSP_MPU_getEuler(float* roll, float* pitch, float* yaw)
     *yaw = atan2f(2 * (q0 * q3 + q1 * q2), 1 - 2 * (q2 * q2 + q3 * q3));
 }
 
-/*
- void BSP_MPU_GyroCalibration(void)
- {
-
- for(int i = 0; i<100; i++)
- {
- BSP_MPU_read_rot();
- BSP_MPU_read_acc();
-
- gyroOffset[x] -= gy[x];
- gyroOffset[y] -= gy[y];
- gyroOffset[z] -= gy[z];
-
- HAL_Delay(10);
- }
-
- gyroOffset[x]/=100.0;
- gyroOffset[y]/=100.0;
- gyroOffset[z]/=100.0;
-
- }
- */
-
 void BSP_MPU_GyroCalibration(void)
 {
     uint8_t response[6], divider;

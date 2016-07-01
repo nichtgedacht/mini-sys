@@ -1,4 +1,5 @@
 #include "controller.h"
+#include "mpu9250.h"
 
 float diffroll = 0.0f;
 float diffnick = 0.0f;
@@ -13,17 +14,9 @@ float last_derivative[3];
 float last_error[3];
 float integrator[3];
 
-const float RKp = 0.24f;
-const float RKi = 1.5f;
-const float RKd = 0.002f;
-
-const float NKp = 0.24f;
-const float NKi = 1.5f;
-const float NKd = 0.002f;
-
-const float GKp = 1.5f;
-const float GKi = 1.5f;
-const float GKd = 0.001f;
+//##############################  RKp    RKi    RKd    NKp    NKi   NKd     GKp   GKi    GKd
+const float const_pid_vars[9] = {0.24f, 1.5f, 0.002f, 0.24f, 1.5f, 0.002f, 1.5f, 1.5f, 0.001f};
+float pid_vars[9];
 
 const float RC = 0.007958;  // 1/(2*PI*_fCut fcut = 20 from Ardupilot
 
@@ -126,4 +119,21 @@ void control(int16_t thrust_set, int16_t roll_set, int16_t nick_set, int16_t gie
      servos[3] Motor front left  CCW
      */
 
+}
+
+void halt_reset(void)
+{
+    servos[0] = 2000;
+    servos[1] = 2000;
+    servos[2] = 2000;
+    servos[3] = 2000;
+    last_derivative[x] = 0.0f;
+    last_derivative[y] = 0.0f;
+    last_derivative[z] = 0.0f;
+    last_error[x] = 0.0f;
+    last_error[y] = 0.0f;
+    last_error[z] = 0.0f;
+    integrator[x] = 0.0f;
+    integrator[y] = 0.0f;
+    integrator[z] = 0.0f;
 }

@@ -64,7 +64,7 @@ SOFTWARE PROJECT
 
 Project Settings : 
 Project Name : mini-sys
-Project Folder : /array_data01/STM32-25/mini-sys
+Project Folder : /array_data01/STM32-26/mini-sys
 Toolchain / IDE : SW4STM32
 Firmware Package Name and Version : STM32Cube FW_F1 V1.4.0
 

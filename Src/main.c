@@ -53,6 +53,7 @@
 #include "sbus.h"
 #include "servo.h"
 #include "controller.h"
+#include "flash.h"
 
 /* USER CODE END Includes */
 
@@ -90,7 +91,10 @@ int xp, yp;
 float vx = 0.0f, vy = 0.0f;
 HAL_StatusTypeDef hal_res;
 uint32_t idle_counter;
-
+float cp_pid_vars[9];
+uint16_t back_channels[16];
+uint8_t i;
+uint8_t indexer = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -99,8 +103,7 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-int16_t pid(uint8_t axis, float error, float Kp, float Ki, float Kd, float dt);
-void control(int16_t thrust_set, int16_t roll_set, int16_t nick_set, int16_t gier_set);
+void draw_program_pid_values(uint8_t line, float value, char* format, uint8_t index, uint8_t offset);
 
 /* USER CODE END PFP */
 
@@ -146,10 +149,10 @@ int main(void)
 
     BSP_LCD_Init();
     BSP_LCD_Clear(LCD_COLOR_BLACK);
-    BSP_LCD_SetTextColor(LCD_COLOR_WHITE);
-    BSP_LCD_SetBackColor(LCD_COLOR_BLUE);
+    BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+    BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
     BSP_LCD_SetFont(&Font20);
-    BSP_LCD_SetRotation(3);
+    BSP_LCD_SetRotation(0);
     color = LCD_COLOR_WHITE;
 
     HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_1);
@@ -161,11 +164,32 @@ int main(void)
     __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_UPDATE);
 
     //for moving circle by gravity start position
-    xp = BSP_LCD_GetXSize() / 2 - 1;
-    yp = BSP_LCD_GetYSize() / 2 + 1;
+    xp = BSP_LCD_GetXSize() / 2;
+    yp = BSP_LCD_GetYSize() / 2;
 
     // enable USB on maple mine clone or use reset as default state
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET);
+
+    /*
+     // ########### test flash write and read #############################
+     if (erase_flash_page() != HAL_OK)
+     {
+     Error_Handler();
+     }
+     else
+     {
+     if (write_flash_vars(pid_vars, 9) != HAL_OK)
+     {
+     Error_Handler();
+     }
+     else
+     {
+     read_flash_vars(cp_pid_vars, 9);
+
+     }
+     }
+     // ############ end test flash write and read #########################
+     */
 
     //############ init SD-card, signal errors by LED ######################
     res = BSP_SD_Init();
@@ -202,6 +226,16 @@ int main(void)
      }
      */
 
+    BSP_LCD_SetFont(&Font12);
+    BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+    BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
+
+    // pid_vars from constant flash values to ram
+    for (i = 0; i < 9; i++)
+    {
+        pid_vars[i] = const_pid_vars[i];
+    }
+
     /* USER CODE END 2 */
 
     /* Infinite loop */
@@ -227,23 +261,11 @@ int main(void)
             BSP_MPU_read_rot();
             BSP_MPU_read_acc();
 
-            if (channels[4] < 1200 || failsafe_counter > 40)
+            if (channels[4] < 1200 || failsafe_counter > 40) // motor stop
             {
-                servos[0] = 2000;
-                servos[1] = 2000;
-                servos[2] = 2000;
-                servos[3] = 2000;
-                last_derivative[x] = 0.0f;
-                last_derivative[y] = 0.0f;
-                last_derivative[z] = 0.0f;
-                last_error[x] = 0.0f;
-                last_error[y] = 0.0f;
-                last_error[z] = 0.0f;
-                integrator[x] = 0.0f;
-                integrator[y] = 0.0f;
-                integrator[z] = 0.0f;
+                halt_reset();
             }
-            else
+            else // armed, flight mode
             {
                 // just attitude hold mode
                 diffroll = gy[x] * 4.0f - (float) channels[1] + 1000.0f;
@@ -251,9 +273,9 @@ int main(void)
                 diffgier = gy[z] * 4.0f + (float) channels[3] - 1000.0f; // control reversed, gy right direction
 
                 thrust_set = (int16_t) channels[0] + 2000;
-                roll_set = pid(x, diffroll, RKp, RKi, RKd, 5.0f);
-                nick_set = pid(y, diffnick, NKp, NKi, NKd, 5.0f);
-                gier_set = pid(z, diffgier, GKp, GKi, GKd, 5.0f);
+                roll_set = pid(x, diffroll, pid_vars[RKp], pid_vars[RKi], pid_vars[RKd], 5.0f);
+                nick_set = pid(y, diffnick, pid_vars[NKp], pid_vars[NKi], pid_vars[NKd], 5.0f);
+                gier_set = pid(z, diffgier, pid_vars[GKp], pid_vars[GKi], pid_vars[GKd], 5.0f);
 
                 control(thrust_set, roll_set, nick_set, gier_set);
                 // assured finished before first servo update by HAL_TIM_PWM_PulseFinishedCallback
@@ -268,60 +290,143 @@ int main(void)
 
             //free_ram = (0x20000000 + 1024 * 20) - (uint32_t) sbrk((int)0);
             //sprintf(buf, "free: %ld\n", free_ram);
+            //free_flash = (0x8000000 + 1024 * 128) - (uint32_t) &flash_top;
+            //sprintf(buf, "free: %ld bytes\n", free_flash);
 
             //sprintf(buf, "dt: %ld\n", dt);
             //sprintf(buf, "%3.3f,%3.3f,%3.3f\n", yaw, pitch, roll);
             //sprintf(buf, "%3.3f,%3.3f,%3.3f,%3.3f,%3.3f,%3.3f\n", ac[x], ac[y], ac[z], gy[x], gy[y], gy[z]);
             //sprintf(buf, "%d %d %d %d\n", servos[0], servos[1], servos[2], servos[3]);
             //sprintf(buf, "%3.3f %3.3f %3.3f %ld %ld\n", gy[x], gy[y], gy[z], dt, idle_counter);
-            idle_counter = 0;
 
-            //########### water bubble #########################################
+            if (HAL_UART_ERROR != 0)
+            {
+                HAL_UART_ERROR = 0;
+            }
 
+            // do it in time pieces
             if (counter == 4)
             {
                 counter = 0;
 
-                BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-                BSP_LCD_DrawCircle(xp, yp, 5);
-
-                BSP_LCD_SetTextColor(LCD_COLOR_RED);
-                BSP_LCD_DrawHLine(75, 64, 10);
-                BSP_LCD_DrawVLine(80, 59, 10);
-
-                vx = sinf(pitch) * 300.0f;
-                vy = sinf(roll) * 300.0f;
-
-                xp = roundf(vx) + 80;
-                yp = roundf(vy) + 64;
-
-                if (xp < 5)
+                if (channels[4] < 1200) // motor stop screen
                 {
-                    xp = 5;
-                    vx = 0;
-                }
-                if (yp < 5)
-                {
-                    yp = 5;
-                    vy = 0;
-                }
-                if (yp > 122)
-                {
-                    yp = 122;
-                    vy = 0;
-                }
-                if (xp > 154)
-                {
-                    xp = 154;
-                    vx = 0;
-                }
+                    // transition to motor stop clear screen
+                    if (back_channels[4] - channels[4] > 500)
+                    {
+                        BSP_LCD_Clear(LCD_COLOR_BLACK);
+                        back_channels[4] = channels[4];
 
-                BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
-                BSP_LCD_DrawCircle(xp, yp, 5);
+                    }
 
+                    // increment indexer by transition of beeper momentary switch (channels[6])
+                    // if program switch (channels[7]) is off
+                    if ((channels[6] - back_channels[6] > 500) && channels[7] > 1200)
+                    {
+                        if (indexer < 8)
+                        {
+                            indexer++;
+                        }
+                        else
+                        {
+                            indexer = 0;
+                        }
+                    }
+                    back_channels[6] = channels[6];
+
+                    BSP_LCD_SetRotation(0);
+
+                    /*
+                     BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+                     BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
+                     BSP_LCD_FillRect(60, 0 * 12, BSP_LCD_GetXSize() - 80, 12);
+                     sprintf(buf, "channl9: %d", channels[9]);
+                     BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+                     BSP_LCD_DisplayStringAtLine(0, (uint8_t *) buf);
+
+                     BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+                     BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
+                     BSP_LCD_FillRect(60, 1 * 12, BSP_LCD_GetXSize() - 80, 12);
+                     sprintf(buf, "channl7: %d", channels[7]);
+                     BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+                     BSP_LCD_DisplayStringAtLine(1, (uint8_t *) buf);
+                     */
+                    //###############################################
+                    // show and program by RC the current PID values
+                    draw_program_pid_values(2, pid_vars[RKp], "Roll Kp: %3.5f", indexer, 2);
+                    draw_program_pid_values(3, pid_vars[RKi], "Roll Ki: %3.5f", indexer, 2);
+                    draw_program_pid_values(4, pid_vars[RKd], "Roll Kd: %3.5f", indexer, 2);
+                    draw_program_pid_values(5, pid_vars[NKp], "Nick Kp: %3.5f", indexer, 2);
+                    draw_program_pid_values(6, pid_vars[NKi], "Nick Ki: %3.5f", indexer, 2);
+                    draw_program_pid_values(7, pid_vars[NKd], "Nick Kd: %3.5f", indexer, 2);
+                    draw_program_pid_values(8, pid_vars[GKp], "Gier Kp: %3.5f", indexer, 2);
+                    draw_program_pid_values(9, pid_vars[GKi], "Gier Ki: %3.5f", indexer, 2);
+                    draw_program_pid_values(10, pid_vars[GKd], "Gier Kd: %3.5f", indexer, 2);
+
+                    //##########################################################
+                    /*
+                     BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+                     BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
+                     BSP_LCD_FillRect(60, 11 * 12, BSP_LCD_GetXSize() - 80, 12);
+                     sprintf(buf, "bchanl9: %d", back_channels[9]);
+                     BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+                     BSP_LCD_DisplayStringAtLine(11, (uint8_t *) buf);
+                     */
+
+                }
+                else // armed, flight mode screen
+                {
+                    // transition to armed, flight mode, clear screen
+                    if (channels[4] - back_channels[4] > 500)
+                    {
+                        BSP_LCD_Clear(LCD_COLOR_BLACK);
+                        back_channels[4] = channels[4];
+
+                    }
+
+                    //########### water bubble ################################
+
+                    BSP_LCD_SetRotation(3);
+                    BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+                    BSP_LCD_DrawCircle(xp, yp, 5);
+
+                    BSP_LCD_SetTextColor(LCD_COLOR_RED);
+                    BSP_LCD_DrawHLine(75, 64, 11);
+                    BSP_LCD_DrawVLine(80, 59, 11);
+
+                    vx = sinf(pitch) * 300.0f;
+                    vy = sinf(roll) * 300.0f;
+
+                    xp = roundf(vx) + 80;
+                    yp = roundf(vy) + 64;
+
+                    if (xp < 5)
+                    {
+                        xp = 5;
+                        vx = 0;
+                    }
+                    if (yp < 5)
+                    {
+                        yp = 5;
+                        vy = 0;
+                    }
+                    if (yp > 122)
+                    {
+                        yp = 122;
+                        vy = 0;
+                    }
+                    if (xp > 154)
+                    {
+                        xp = 154;
+                        vx = 0;
+                    }
+
+                    BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
+                    BSP_LCD_DrawCircle(xp, yp, 5);
+
+                    //############ end water bubble ###########################
+                }
             }
-
-            //############ end water bubble ####################################
 
             if (counter == 3)
             {
@@ -335,7 +440,9 @@ int main(void)
                     HAL_ADC_Stop(&hadc1);
                 }
 
-                if (volt1 < 10.0f || channels[6] > 1000) // beeper
+                // beeper not enabled in program mode (program switch channels[7] low value)
+                // let default value of 1000 included for beeping
+                if ((volt1 < 10.2f || channels[6] > 1000) && (channels[7] > 900))
                 {
                     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
                 }
@@ -351,17 +458,13 @@ int main(void)
                 HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
             }
 
-            if (HAL_UART_ERROR != 0)
-            {
-                HAL_UART_ERROR = 0;
-            }
-
             //CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
+            idle_counter = 0;
 
         }
         else
         {
-            idle_counter++; //min value before reset > 700 with sbus running
+            idle_counter++; //min value before reset > 450 with sbus running
         }
 
     } //while(1)
@@ -419,6 +522,83 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+void draw_program_pid_values(uint8_t line, float value, char* format, uint8_t index, uint8_t offset)
+{
+    /*
+     Currently used functions/names to channel mapping on my DC16:
+     1 (channels[0]) f4 (Thrust)
+     2 (channels[1]) f1 (Roll)
+     3 (channels[2]) f2 (Nick) // I prefer the german word since I fly helicopters back in the eighties
+     4 (channels[3]) f3 (Gier) // I prefer the german word ...
+     5 (channels[4]) sd (Arm)
+     6 (channels[5]  sj (Atti/Hori/Baro) # for other copters
+     7 (channels[6]  sa (Beeper)         # momentary switch
+     8 (channels[7]  sc (Program)
+     9 (channels[8]  f8 (Variable)       # knob
+     10 (channels[9] sb (WriteUse)       # three positions
+     */
+
+    // if indexer points to current line and we are in program mode ( channels[7] low )
+    // and WriteUse switch is not in upper position, then if beeper momentary switch (channels[6]) is being hold
+    // new value adjustable by variable knob (channels[8]) is shown
+    if ((indexer == line - offset) && (channels[6] > 1200) && (channels[7] < 800) && (channels[9] < 1200))
+    {
+        switch (indexer)
+        {
+        case 0: //RKp
+            value = (float) channels[8] / 2000.0f;
+            break;
+
+        case 1: //RKi
+            value = (float) channels[8] / 1000.0f;
+            break;
+
+        case 2: //RKd
+            value = (float) channels[8] / 100000.0f;
+            break;
+
+        case 3:  //NKp
+            value = (float) channels[8] / 2000.0f;
+            break;
+
+        case 4:  //NKi
+            value = (float) channels[8] / 1000.0f;
+            break;
+
+        case 5:  //NKd
+            value = (float) channels[8] / 100000.0f;
+            break;
+
+        case 6:  //GKp
+            value = (float) channels[8] / 1000.0f;
+            break;
+
+        case 7:  //GKi
+            value = (float) channels[8] / 1000.0f;
+            break;
+
+        case 8:  //GKd
+            value = (float) channels[8] / 100000.0f;
+            break;
+        }
+
+        // if WriteUse switch is in lower position the new value will be written immediately and continuously to ram (pid_vars[x])
+        // while holding the momentary switch and adjusting the value with the knob
+        if (channels[9] < 800)
+        {
+            pid_vars[indexer] = value;
+        }
+    }
+
+    //back_channels[9] = channels[9];
+
+    BSP_LCD_SetTextColor(indexer == line - offset ? LCD_COLOR_BLUE : LCD_COLOR_BLACK);
+    BSP_LCD_SetBackColor(indexer == line - offset ? LCD_COLOR_BLUE : LCD_COLOR_BLACK);
+    BSP_LCD_FillRect(60, line * 12, BSP_LCD_GetXSize() - 80, 12);
+    sprintf(buf, format, value);
+    BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+    BSP_LCD_DisplayStringAtLine(line, (uint8_t *) buf);
+}
 
 /* USER CODE END 4 */
 
