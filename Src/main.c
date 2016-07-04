@@ -170,27 +170,6 @@ int main(void)
     // enable USB on maple mine clone or use reset as default state
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET);
 
-    /*
-     // ########### test flash write and read #############################
-     if (erase_flash_page() != HAL_OK)
-     {
-     Error_Handler();
-     }
-     else
-     {
-     if (write_flash_vars(pid_vars, 9) != HAL_OK)
-     {
-     Error_Handler();
-     }
-     else
-     {
-     read_flash_vars(cp_pid_vars, 9);
-
-     }
-     }
-     // ############ end test flash write and read #########################
-     */
-
     //############ init SD-card, signal errors by LED ######################
     res = BSP_SD_Init();
 
@@ -218,22 +197,24 @@ int main(void)
 
     //############ end init SD-card, signal errors by LED ##################
 
-    /*
-     res = BSP_SD_Init();
-     if ( res == BSP_SD_OK )
-     {
-     TFT_DisplayImages(0, 0, "PICT2.BMP", buf);
-     }
-     */
-
     BSP_LCD_SetFont(&Font12);
     BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
     BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
 
-    // pid_vars from constant flash values to ram
-    for (i = 0; i < 9; i++)
+    // if program switch is on ( channels[7] low value ) and WriteUse switch
+    // ( channels[9] ) is in the upper position copy pid_vars from upper flash page to ram
+    if (channels[9] > 1200 && channels[7] < 800)
     {
-        pid_vars[i] = const_pid_vars[i];
+        // pid_vars from upper flash page to ram
+        read_flash_vars(pid_vars, 9);
+    }
+    else
+    {
+        // pid_vars from constant flash values to ram
+        for (i = 0; i < 9; i++)
+        {
+            pid_vars[i] = const_pid_vars[i];
+        }
     }
 
     /* USER CODE END 2 */
@@ -246,7 +227,7 @@ int main(void)
 
         /* USER CODE BEGIN 3 */
 
-        if (PeriodElapsed == 1) // back to 200 Hz otherwise water bubble is to slow to get around
+        if (PeriodElapsed == 1) // 200 Hz from servo timer
         {
             PeriodElapsed = 0;
             counter++;
@@ -298,11 +279,7 @@ int main(void)
             //sprintf(buf, "%3.3f,%3.3f,%3.3f,%3.3f,%3.3f,%3.3f\n", ac[x], ac[y], ac[z], gy[x], gy[y], gy[z]);
             //sprintf(buf, "%d %d %d %d\n", servos[0], servos[1], servos[2], servos[3]);
             //sprintf(buf, "%3.3f %3.3f %3.3f %ld %ld\n", gy[x], gy[y], gy[z], dt, idle_counter);
-
-            if (HAL_UART_ERROR != 0)
-            {
-                HAL_UART_ERROR = 0;
-            }
+            //sprintf(buf, "HAL_UART_ERROR: %d\n", HAL_UART_ERROR);
 
             // do it in time pieces
             if (counter == 4)
@@ -319,19 +296,42 @@ int main(void)
 
                     }
 
-                    // increment indexer by transition of beeper momentary switch (channels[6])
-                    // if program switch (channels[7]) is off
-                    if ((channels[6] - back_channels[6] > 500) && channels[7] > 1200)
+                    // transition of beeper momentary switch (channels[6]) detect
+                    if (channels[6] - back_channels[6] > 500)
                     {
-                        if (indexer < 8)
+                        // if program switch (channels[7]) is off
+                        // increment indexer
+                        if (channels[7] > 1200)
                         {
-                            indexer++;
+                            if (indexer < 8)
+                            {
+                                indexer++;
+                            }
+                            else
+                            {
+                                indexer = 0;
+                            }
+
                         }
-                        else
+                        // else if program switch (channels[7]) is on
+                        // and WriteUse switch channels[9] is in upper position
+                        // copy pid_vars from ram to upper flash page
+                        else if (channels[7] < 800 && channels[9] > 1200)
                         {
-                            indexer = 0;
+                            if (erase_flash_page() != HAL_OK)
+                            {
+                                Error_Handler();
+                            }
+                            else
+                            {
+                                if (write_flash_vars(pid_vars, 9) != HAL_OK)
+                                {
+                                    Error_Handler();
+                                }
+                            }
                         }
                     }
+
                     back_channels[6] = channels[6];
 
                     BSP_LCD_SetRotation(0);
@@ -369,6 +369,15 @@ int main(void)
                      BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
                      BSP_LCD_FillRect(60, 11 * 12, BSP_LCD_GetXSize() - 80, 12);
                      sprintf(buf, "bchanl9: %d", back_channels[9]);
+                     BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+                     BSP_LCD_DisplayStringAtLine(11, (uint8_t *) buf);
+                     */
+
+                    /*
+                     BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+                     BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
+                     BSP_LCD_FillRect(60, 11 * 12, BSP_LCD_GetXSize() - 80, 12);
+                     sprintf(buf, "UART_ERROR: %d", HAL_UART_ERROR);
                      BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
                      BSP_LCD_DisplayStringAtLine(11, (uint8_t *) buf);
                      */
@@ -464,7 +473,7 @@ int main(void)
         }
         else
         {
-            idle_counter++; //min value before reset > 450 with sbus running
+            idle_counter++; //in flight mode minimum value before reset is > 450 with sbus running
         }
 
     } //while(1)
@@ -539,9 +548,9 @@ void draw_program_pid_values(uint8_t line, float value, char* format, uint8_t in
      */
 
     // if indexer points to current line and we are in program mode ( channels[7] low )
-    // and WriteUse switch is not in upper position, then if beeper momentary switch (channels[6]) is being hold
-    // new value adjustable by variable knob (channels[8]) is shown
-    if ((indexer == line - offset) && (channels[6] > 1200) && (channels[7] < 800) && (channels[9] < 1200))
+    // and WriteUse switch is not in upper position, then
+    // the new value adjustable by variable knob (channels[8]) is shown
+    if ((indexer == line - offset) && (channels[7] < 800) && (channels[9] < 1200))
     {
         switch (indexer)
         {
@@ -582,8 +591,8 @@ void draw_program_pid_values(uint8_t line, float value, char* format, uint8_t in
             break;
         }
 
-        // if WriteUse switch is in lower position the new value will be written immediately and continuously to ram (pid_vars[x])
-        // while holding the momentary switch and adjusting the value with the knob
+        // if WriteUse switch is switched lower position the new value will be written immediately
+        // and continuously to ram (pid_vars[x]) while adjusting the value with the knob
         if (channels[9] < 800)
         {
             pid_vars[indexer] = value;

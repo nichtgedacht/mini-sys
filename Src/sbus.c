@@ -65,9 +65,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
  */
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
-
-    // there is always an overrun error if transmitter started first
-    // recover until we are in sync
+    // should never happen
     HAL_UART_ERROR = huart->ErrorCode;
 
     __HAL_UART_CLEAR_OREFLAG(huart);

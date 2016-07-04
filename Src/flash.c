@@ -2,14 +2,11 @@
 
 uint32_t PAGEError = 0;
 
-//Variable used for Erase procedure
 static FLASH_EraseInitTypeDef EraseInitStruct;
 
 uint32_t erase_flash_page(void)
 {
-    //Erase the user Flash area
-    //(area defined by FLASH_USER_START_ADDR and FLASH_USER_END_ADDR)
-
+    //Erase flash page(s)
     //Fill EraseInit structure
     EraseInitStruct.TypeErase = FLASH_TYPEERASE_PAGES;
     EraseInitStruct.PageAddress = FLASH_USER_START_ADDR;
@@ -19,11 +16,8 @@ uint32_t erase_flash_page(void)
 
     if (HAL_FLASHEx_Erase(&EraseInitStruct, &PAGEError) != HAL_OK)
     {
-        // Error occurred while page erase.
-        // User can add here some code to deal with this error.
-        // PAGEError will contain the faulty page and then to know the code error on this page,
-        // user can call function 'HAL_FLASH_GetError()'
-
+        // PAGEError will contain the faulty page
+        // error code from 'HAL_FLASH_GetError()'
         HAL_FLASH_Lock();
         return HAL_FLASH_GetError();
     }
@@ -52,6 +46,7 @@ uint32_t write_flash_vars(float* data, uint8_t length)
         }
         else
         {
+            HAL_FLASH_Lock();
             return HAL_FLASH_GetError();
         }
     }
