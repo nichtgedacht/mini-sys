@@ -67,7 +67,7 @@ uint8_t BSP_MPU_Init(uint8_t sample_rate_div, uint8_t GY_low_pass_filter, uint8_
     }
 
     BSP_MPU_set_acc_scale(BITS_FS_2G);
-    BSP_MPU_set_gyro_scale(BITS_FS_500DPS);
+    BSP_MPU_set_gyro_scale(BITS_FS_1000DPS);
 
     return 0;
 

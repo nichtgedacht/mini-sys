@@ -88,12 +88,18 @@
 							<option id="fr.ac6.managedbuild.option.gnu.cross.instructionSet.576967920.1096869324" name="Instruction Set" superClass="fr.ac6.managedbuild.option.gnu.cross.instructionSet.576967920" />
 							<option id="fr.ac6.managedbuild.option.gnu.cross.fpu.120871696.163764662" name="Floating point hardware" superClass="fr.ac6.managedbuild.option.gnu.cross.fpu.120871696" />
 							<option id="fr.ac6.managedbuild.option.gnu.cross.floatabi.1883014452.1868102007" name="Floating-point ABI" superClass="fr.ac6.managedbuild.option.gnu.cross.floatabi.1883014452" />
-							<tool id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.991180825" name="MCU GCC Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1414784079" />
+							<tool id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.991180825" name="MCU GCC Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1414784079">
+								<inputType id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.c.1644274422" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.c" />
+								<inputType id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s.1779240526" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s" />
+							</tool>
 							<tool id="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.1867291417" name="MCU G++ Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.1273116735" />
 							<tool id="fr.ac6.managedbuild.tool.gnu.cross.c.linker.1876868660" name="MCU GCC Linker" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.linker.106337067" />
 							<tool id="fr.ac6.managedbuild.tool.gnu.cross.cpp.linker.1555161281" name="MCU G++ Linker" superClass="fr.ac6.managedbuild.tool.gnu.cross.cpp.linker.2045639266" />
 							<tool id="fr.ac6.managedbuild.tool.gnu.archiver.590933903" name="MCU GCC Archiver" superClass="fr.ac6.managedbuild.tool.gnu.archiver.2045419448" />
-							<tool id="fr.ac6.managedbuild.tool.gnu.cross.assembler.2100657494" name="MCU GCC Assembler" superClass="fr.ac6.managedbuild.tool.gnu.cross.assembler.1312441556" />
+							<tool id="fr.ac6.managedbuild.tool.gnu.cross.assembler.2100657494" name="MCU GCC Assembler" superClass="fr.ac6.managedbuild.tool.gnu.cross.assembler.1312441556">
+								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.834478101" superClass="cdt.managedbuild.tool.gnu.assembler.input" />
+								<inputType id="fr.ac6.managedbuild.tool.gnu.cross.assembler.input.1438211848" superClass="fr.ac6.managedbuild.tool.gnu.cross.assembler.input" />
+							</tool>
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
@@ -126,4 +132,5 @@
 			<resource resourceType="PROJECT" workspacePath="mini-sys" />
 		</configuration>
 	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings" />
 </cproject>

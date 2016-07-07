@@ -139,31 +139,36 @@ int main(void)
     MX_FATFS_Init();
 
     // Request first 25 bytes s-bus frame from uart, uart_data becomes filled per interrupts
-    // Get callback if ready Callback restarts request
+    // Get callback if ready. Callback function starts next request
     HAL_UART_Receive_IT(&huart1, (uint8_t*) uart_data, 25);
 
-    // no sample rate divider, accel: lowpass filter bandwidth 460 Hz, Rate 1kHz, gyro:  lowpass filter bandwidth 250 Hz
+    // no sample rate divider (0+1), accel: lowpass filter bandwidth 460 Hz, Rate 1kHz, gyro: lowpass filter bandwidth 250 Hz
+    // gyro lpf, 3. parameter:
+    // 0  250 Hz
+    // 1  184 Hz
+    // 2   92 Hz
+    // 3   41 Hz
     BSP_MPU_Init(0, 2, 0);
     HAL_Delay(2000);
     BSP_MPU_GyroCalibration();
 
     BSP_LCD_Init();
     BSP_LCD_Clear(LCD_COLOR_BLACK);
-    BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-    BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
-    BSP_LCD_SetFont(&Font20);
     BSP_LCD_SetRotation(0);
-    color = LCD_COLOR_WHITE;
+    BSP_LCD_SetFont(&Font12);
 
+    // Start servo pulse generation
+    // pulse finish callback updates length of next pulse
     HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_1);
     HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_2);
     HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_3);
     HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_4);
 
-    //not to be enabled until BSP_MPU_GyroCalibration
+    // not to be enabled until BSP_MPU_GyroCalibration
+    // Period elapsed callback sets flag PeriodElapsed
     __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_UPDATE);
 
-    //for moving circle by gravity start position
+    //for water bubble
     xp = BSP_LCD_GetXSize() / 2;
     yp = BSP_LCD_GetYSize() / 2;
 
@@ -197,10 +202,6 @@ int main(void)
 
     //############ end init SD-card, signal errors by LED ##################
 
-    BSP_LCD_SetFont(&Font12);
-    BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-    BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
-
     // if program switch is on ( channels[7] low value ) and WriteUse switch
     // ( channels[9] ) is in the upper position copy pid_vars from upper flash page to ram
     if (channels[9] > 1200 && channels[7] < 800)
@@ -227,6 +228,7 @@ int main(void)
 
         /* USER CODE BEGIN 3 */
 
+        //systick_val1 = SysTick->VAL;
         if (PeriodElapsed == 1) // 200 Hz from servo timer
         {
             PeriodElapsed = 0;
@@ -262,9 +264,9 @@ int main(void)
                 // assured finished before first servo update by HAL_TIM_PWM_PulseFinishedCallback
             }
 
-            tick = HAL_GetTick();
-            dt = tick - prev_tick;
-            prev_tick = tick;
+            //tick = HAL_GetTick();
+            //dt = tick - prev_tick;
+            //prev_tick = tick;
 
             BSP_MPU_updateIMU(ac[x], ac[y], ac[z], gy[x], gy[y], gy[z], 5.0f);
             BSP_MPU_getEuler(&roll, &pitch, &yaw);
@@ -280,6 +282,7 @@ int main(void)
             //sprintf(buf, "%d %d %d %d\n", servos[0], servos[1], servos[2], servos[3]);
             //sprintf(buf, "%3.3f %3.3f %3.3f %ld %ld\n", gy[x], gy[y], gy[z], dt, idle_counter);
             //sprintf(buf, "HAL_UART_ERROR: %d\n", HAL_UART_ERROR);
+            //sprintf(buf, "gier_set: %d\n", gier_set);
 
             // do it in time pieces
             if (counter == 4)
@@ -336,22 +339,6 @@ int main(void)
 
                     BSP_LCD_SetRotation(0);
 
-                    /*
-                     BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-                     BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
-                     BSP_LCD_FillRect(60, 0 * 12, BSP_LCD_GetXSize() - 80, 12);
-                     sprintf(buf, "channl9: %d", channels[9]);
-                     BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-                     BSP_LCD_DisplayStringAtLine(0, (uint8_t *) buf);
-
-                     BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-                     BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
-                     BSP_LCD_FillRect(60, 1 * 12, BSP_LCD_GetXSize() - 80, 12);
-                     sprintf(buf, "channl7: %d", channels[7]);
-                     BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-                     BSP_LCD_DisplayStringAtLine(1, (uint8_t *) buf);
-                     */
-                    //###############################################
                     // show and program by RC the current PID values
                     draw_program_pid_values(2, pid_vars[RKp], "Roll Kp: %3.5f", indexer, 2);
                     draw_program_pid_values(3, pid_vars[RKi], "Roll Ki: %3.5f", indexer, 2);
@@ -362,25 +349,6 @@ int main(void)
                     draw_program_pid_values(8, pid_vars[GKp], "Gier Kp: %3.5f", indexer, 2);
                     draw_program_pid_values(9, pid_vars[GKi], "Gier Ki: %3.5f", indexer, 2);
                     draw_program_pid_values(10, pid_vars[GKd], "Gier Kd: %3.5f", indexer, 2);
-
-                    //##########################################################
-                    /*
-                     BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-                     BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
-                     BSP_LCD_FillRect(60, 11 * 12, BSP_LCD_GetXSize() - 80, 12);
-                     sprintf(buf, "bchanl9: %d", back_channels[9]);
-                     BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-                     BSP_LCD_DisplayStringAtLine(11, (uint8_t *) buf);
-                     */
-
-                    /*
-                     BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-                     BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
-                     BSP_LCD_FillRect(60, 11 * 12, BSP_LCD_GetXSize() - 80, 12);
-                     sprintf(buf, "UART_ERROR: %d", HAL_UART_ERROR);
-                     BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-                     BSP_LCD_DisplayStringAtLine(11, (uint8_t *) buf);
-                     */
 
                 }
                 else // armed, flight mode screen
@@ -531,6 +499,12 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+/**
+ *  @brief Shows PID value, highlight selected line, writes new value on selected line according RC
+ *  @param Number of line, PID value of this line, format string, select index, offset line to index
+ *  @retval none
+ */
 void draw_program_pid_values(uint8_t line, float value, char* format, uint8_t index, uint8_t offset)
 {
     /*
@@ -555,7 +529,7 @@ void draw_program_pid_values(uint8_t line, float value, char* format, uint8_t in
         switch (indexer)
         {
         case 0: //RKp
-            value = (float) channels[8] / 2000.0f;
+            value = (float) channels[8] / 4000.0f;
             break;
 
         case 1: //RKi
@@ -567,7 +541,7 @@ void draw_program_pid_values(uint8_t line, float value, char* format, uint8_t in
             break;
 
         case 3:  //NKp
-            value = (float) channels[8] / 2000.0f;
+            value = (float) channels[8] / 4000.0f;
             break;
 
         case 4:  //NKi
@@ -591,15 +565,13 @@ void draw_program_pid_values(uint8_t line, float value, char* format, uint8_t in
             break;
         }
 
-        // if WriteUse switch is switched lower position the new value will be written immediately
+        // if beeper switch is switched to lower position the new value will be written immediately
         // and continuously to ram (pid_vars[x]) while adjusting the value with the knob
-        if (channels[9] < 800)
+        if (channels[6] > 1200)
         {
             pid_vars[indexer] = value;
         }
     }
-
-    //back_channels[9] = channels[9];
 
     BSP_LCD_SetTextColor(indexer == line - offset ? LCD_COLOR_BLUE : LCD_COLOR_BLACK);
     BSP_LCD_SetBackColor(indexer == line - offset ? LCD_COLOR_BLUE : LCD_COLOR_BLACK);

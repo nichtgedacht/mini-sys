@@ -15,7 +15,7 @@ float last_error[3];
 float integrator[3];
 
 //##############################  RKp    RKi    RKd    NKp    NKi   NKd     GKp   GKi    GKd
-const float const_pid_vars[9] = {0.24f, 1.5f, 0.008f, 0.24f, 1.5f, 0.008f, 1.5f, 1.5f, 0.001f};
+const float const_pid_vars[9] = {0.24f, 1.5f, 0.004f, 0.24f, 1.5f, 0.004f, 1.0f, 1.5f, 0.001f};
 float pid_vars[9];
 
 const float RC = 0.007958;  // 1/(2*PI*_fCut fcut = 20 from Ardupilot
@@ -55,18 +55,34 @@ int16_t pid(uint8_t axis, float error, float Kp, float Ki, float Kd, float dt)
 // DT1
     output_f += Kd * derivative;
 
-    output = roundf(output_f);
+    //output = roundf(output_f);
+    //output = lroundf(output_f);
+    output = rintf(output_f);
 
     return output;
 }
 
 void control(int16_t thrust_set, int16_t roll_set, int16_t nick_set, int16_t gier_set)
 {
+
+    // prevents motor stop, hopefully
+    if (gier_set > 200)
+    {
+        gier_set = 200;
+    }
+    else if (gier_set < -200)
+    {
+        gier_set = -200;
+    }
+
     servos[3] = thrust_set - roll_set + nick_set + gier_set;  // Motor front left  CCW
     servos[1] = thrust_set + roll_set + nick_set - gier_set;  // Motor front right CW
     servos[0] = thrust_set - roll_set - nick_set - gier_set;  // Motor rear left   CW
     servos[2] = thrust_set + roll_set - nick_set + gier_set;  // Motor rear right  CCW
 
+    // It is essential that these statements are completed within the current period before
+    // the values are taken by HAL_TIM_PWM_PulseFinishedCallback (in servo.c).
+    // That is < 1ms since PeriodElapsed flag was set.
     if (servos[0] > 4000)
     {
         servos[0] = 4000;
