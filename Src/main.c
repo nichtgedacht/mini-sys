@@ -50,7 +50,7 @@
 #include "unistd.h"
 #include "mpu9250.h"
 #include "math.h"
-#include "sbus.h"
+#include "rc.h"
 #include "servo.h"
 #include "controller.h"
 #include "flash.h"
@@ -71,30 +71,23 @@ DIR directory;
 FATFS SD_FatFs; /* File system object for SD card logical drive */
 UINT BytesWritten, BytesRead;
 uint32_t size = 0;
-uint32_t nbline;
 uint8_t *ptr = NULL;
-float volt1 = 0.0f, volt2 = 0.0f;
+float volt1 = 0.0f;
 uint32_t free_ram;
-uint8_t red = 1;
-uint32_t width;
-uint32_t height;
 char buf[50] =
 { 0 };
-uint16_t color = LCD_COLOR_WHITE;
 const uint8_t flash_top = 255;
 uint32_t free_flash;
-uint8_t whoami;
-uint8_t mpu_res;
-uint32_t tick, prev_tick, dt, dtx;
+uint32_t tick, prev_tick, dt;
 float roll, pitch, yaw;
 int xp, yp;
 float vx = 0.0f, vy = 0.0f;
 HAL_StatusTypeDef hal_res;
 uint32_t idle_counter;
 float cp_pid_vars[9];
-uint16_t back_channels[16];
 uint8_t i;
 uint8_t indexer = 0;
+uint32_t systick_val1, systick_val2;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -131,16 +124,29 @@ int main(void)
     MX_ADC1_Init();
     MX_USB_DEVICE_Init();
     MX_SPI2_Init();
-    MX_USART1_UART_Init();
     MX_TIM2_Init();
 
     /* USER CODE BEGIN 2 */
 
     MX_FATFS_Init();
 
-    // Request first 25 bytes s-bus frame from uart, uart_data becomes filled per interrupts
+    /*
+     // alternative SBUS
+     MX_SBUS_USART1_UART_Init();
+     UART_RxCpltCallback = &HAL_UART_RxCpltCallback_SBUS;
+     UART_ErrorCallback = &HAL_UART_ErrorCallback_SBUS;
+     // Request first 25 bytes s-bus frame from uart, uart_data becomes filled per interrupts
+     // Get callback if ready. Callback function starts next request
+     HAL_UART_Receive_IT(&huart1, (uint8_t*) uart_data, 25);
+     */
+
+    // alternative SRXL16 (Multiplex) aka UDI16 (Jeti)
+    MX_USART1_UART_Init();
+    UART_RxCpltCallback = &HAL_UART_RxCpltCallback_SRXL;
+    UART_ErrorCallback = &HAL_UART_ErrorCallback_SRXL;
+    // Request first 35 bytes srxl frame from uart, uart_data becomes filled per interrupts
     // Get callback if ready. Callback function starts next request
-    HAL_UART_Receive_IT(&huart1, (uint8_t*) uart_data, 25);
+    HAL_UART_Receive_IT(&huart1, (uint8_t*) uart_data, 35);
 
     // no sample rate divider (0+1), accel: lowpass filter bandwidth 460 Hz, Rate 1kHz, gyro: lowpass filter bandwidth 250 Hz
     // gyro lpf, 3. parameter:
@@ -204,7 +210,7 @@ int main(void)
 
     // if program switch is on ( channels[7] low value ) and WriteUse switch
     // ( channels[9] ) is in the upper position copy pid_vars from upper flash page to ram
-    if (channels[9] > 1200 && channels[7] < 800)
+    if (channels[9] > 2400 && channels[7] < 1600)
     {
         // pid_vars from upper flash page to ram
         read_flash_vars(pid_vars, 9);
@@ -235,33 +241,36 @@ int main(void)
             counter++;
             failsafe_counter++;
 
-            if (SBUS_RECEIVED == 1)
+            if (RC_RECEIVED == 1)
             {
-                SBUS_RECEIVED = 0;
+                RC_RECEIVED = 0;
                 failsafe_counter = 0;
             }
 
             BSP_MPU_read_rot();
             BSP_MPU_read_acc();
 
-            if (channels[4] < 1200 || failsafe_counter > 40) // motor stop
+            if (channels[4] < 2400 || failsafe_counter > 40) // motor stop
             {
                 halt_reset();
             }
             else // armed, flight mode
             {
                 // just attitude hold mode
-                diffroll = gy[x] * 4.0f - (float) channels[1] + 1000.0f;
-                diffnick = gy[y] * 4.0f - (float) channels[2] + 1000.0f;
-                diffgier = gy[z] * 4.0f + (float) channels[3] - 1000.0f; // control reversed, gy right direction
+                diffroll = gy[x] * 8.0f - (float) channels[1] + MIDDLE_POS; // native middle positions
+                diffnick = gy[y] * 8.0f - (float) channels[2] + MIDDLE_POS;
+                diffgier = gy[z] * 8.0f + (float) channels[3] - MIDDLE_POS; // control reversed, gy right direction
 
-                thrust_set = (int16_t) channels[0] + 2000;
+                thrust_set = (int16_t) channels[0] + LOW_OFFS; // native middle position
                 roll_set = pid(x, diffroll, pid_vars[RKp], pid_vars[RKi], pid_vars[RKd], 5.0f);
                 nick_set = pid(y, diffnick, pid_vars[NKp], pid_vars[NKi], pid_vars[NKd], 5.0f);
                 gier_set = pid(z, diffgier, pid_vars[GKp], pid_vars[GKi], pid_vars[GKd], 5.0f);
 
                 control(thrust_set, roll_set, nick_set, gier_set);
                 // assured finished before first servo update by HAL_TIM_PWM_PulseFinishedCallback
+
+                //systick_val2 = SysTick->VAL;
+                //sprintf(buf, "elapsed: %ld usec\n", (systick_val1 - systick_val2) / 72);
             }
 
             //tick = HAL_GetTick();
@@ -276,24 +285,26 @@ int main(void)
             //free_flash = (0x8000000 + 1024 * 128) - (uint32_t) &flash_top;
             //sprintf(buf, "free: %ld bytes\n", free_flash);
 
+            //sprintf(buf, "%d %d %d %d %d %d\n", channels[0], channels[1], channels[2], channels[3] , channels[4], channels[5]);
             //sprintf(buf, "dt: %ld\n", dt);
             //sprintf(buf, "%3.3f,%3.3f,%3.3f\n", yaw, pitch, roll);
             //sprintf(buf, "%3.3f,%3.3f,%3.3f,%3.3f,%3.3f,%3.3f\n", ac[x], ac[y], ac[z], gy[x], gy[y], gy[z]);
             //sprintf(buf, "%d %d %d %d\n", servos[0], servos[1], servos[2], servos[3]);
             //sprintf(buf, "%3.3f %3.3f %3.3f %ld %ld\n", gy[x], gy[y], gy[z], dt, idle_counter);
             //sprintf(buf, "HAL_UART_ERROR: %d\n", HAL_UART_ERROR);
-            //sprintf(buf, "gier_set: %d\n", gier_set);
+            //sprintf(buf, "roll_set: %d\n", roll_set);
 
             // do it in time pieces
             if (counter == 4)
             {
                 counter = 0;
 
-                if (channels[4] < 1200) // motor stop screen
+                if (channels[4] < 2400) // motor stop screen
                 {
                     // transition to motor stop clear screen
-                    if (back_channels[4] - channels[4] > 500)
+                    if (back_channels[4] - channels[4] > 1000)
                     {
+                        BSP_LCD_SetRotation(0);
                         BSP_LCD_Clear(LCD_COLOR_BLACK);
                         back_channels[4] = channels[4];
 
@@ -304,7 +315,7 @@ int main(void)
                     {
                         // if program switch (channels[7]) is off
                         // increment indexer
-                        if (channels[7] > 1200)
+                        if (channels[7] > 2400)
                         {
                             if (indexer < 8)
                             {
@@ -319,7 +330,7 @@ int main(void)
                         // else if program switch (channels[7]) is on
                         // and WriteUse switch channels[9] is in upper position
                         // copy pid_vars from ram to upper flash page
-                        else if (channels[7] < 800 && channels[9] > 1200)
+                        else if (channels[7] < 800 && channels[9] > 2400)
                         {
                             if (erase_flash_page() != HAL_OK)
                             {
@@ -337,8 +348,6 @@ int main(void)
 
                     back_channels[6] = channels[6];
 
-                    BSP_LCD_SetRotation(0);
-
                     // show and program by RC the current PID values
                     draw_program_pid_values(2, pid_vars[RKp], "Roll Kp: %3.5f", indexer, 2);
                     draw_program_pid_values(3, pid_vars[RKi], "Roll Ki: %3.5f", indexer, 2);
@@ -354,16 +363,15 @@ int main(void)
                 else // armed, flight mode screen
                 {
                     // transition to armed, flight mode, clear screen
-                    if (channels[4] - back_channels[4] > 500)
+                    if (channels[4] - back_channels[4] > 1000)
                     {
+                        BSP_LCD_SetRotation(3);
                         BSP_LCD_Clear(LCD_COLOR_BLACK);
                         back_channels[4] = channels[4];
-
                     }
 
                     //########### water bubble ################################
 
-                    BSP_LCD_SetRotation(3);
                     BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
                     BSP_LCD_DrawCircle(xp, yp, 5);
 
@@ -374,8 +382,8 @@ int main(void)
                     vx = sinf(pitch) * 300.0f;
                     vy = sinf(roll) * 300.0f;
 
-                    xp = roundf(vx) + 80;
-                    yp = roundf(vy) + 64;
+                    xp = rintf(vx) + 80;
+                    yp = rintf(vy) + 64;
 
                     if (xp < 5)
                     {
@@ -419,7 +427,7 @@ int main(void)
 
                 // beeper not enabled in program mode (program switch channels[7] low value)
                 // let default value of 1000 included for beeping
-                if ((volt1 < 10.2f || channels[6] > 1000) && (channels[7] > 900))
+                if ((volt1 < 10.2f || channels[6] > 2000) && (channels[7] > 1800))
                 {
                     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
                 }
@@ -435,7 +443,7 @@ int main(void)
                 HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
             }
 
-            //CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
+            // CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
             idle_counter = 0;
 
         }
@@ -524,50 +532,50 @@ void draw_program_pid_values(uint8_t line, float value, char* format, uint8_t in
     // if indexer points to current line and we are in program mode ( channels[7] low )
     // and WriteUse switch is not in upper position, then
     // the new value adjustable by variable knob (channels[8]) is shown
-    if ((indexer == line - offset) && (channels[7] < 800) && (channels[9] < 1200))
+    if ((indexer == line - offset) && (channels[7] < 1600) && (channels[9] < 2400))
     {
         switch (indexer)
         {
         case 0: //RKp
-            value = (float) channels[8] / 4000.0f;
+            value = (float) channels[8] / 8000.0f;
             break;
 
         case 1: //RKi
-            value = (float) channels[8] / 1000.0f;
+            value = (float) channels[8] / 2000.0f;
             break;
 
         case 2: //RKd
-            value = (float) channels[8] / 100000.0f;
+            value = (float) channels[8] / 200000.0f;
             break;
 
         case 3:  //NKp
-            value = (float) channels[8] / 4000.0f;
+            value = (float) channels[8] / 8000.0f;
             break;
 
         case 4:  //NKi
-            value = (float) channels[8] / 1000.0f;
+            value = (float) channels[8] / 2000.0f;
             break;
 
         case 5:  //NKd
-            value = (float) channels[8] / 100000.0f;
+            value = (float) channels[8] / 200000.0f;
             break;
 
         case 6:  //GKp
-            value = (float) channels[8] / 1000.0f;
+            value = (float) channels[8] / 2000.0f;
             break;
 
         case 7:  //GKi
-            value = (float) channels[8] / 1000.0f;
+            value = (float) channels[8] / 2000.0f;
             break;
 
         case 8:  //GKd
-            value = (float) channels[8] / 100000.0f;
+            value = (float) channels[8] / 200000.0f;
             break;
         }
 
         // if beeper switch is switched to lower position the new value will be written immediately
         // and continuously to ram (pid_vars[x]) while adjusting the value with the knob
-        if (channels[6] > 1200)
+        if (channels[6] > 2400)
         {
             pid_vars[indexer] = value;
         }

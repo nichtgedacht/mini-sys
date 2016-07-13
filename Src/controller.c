@@ -15,7 +15,8 @@ float last_error[3];
 float integrator[3];
 
 //##############################  RKp    RKi    RKd    NKp    NKi   NKd     GKp   GKi    GKd
-const float const_pid_vars[9] = {0.24f, 1.5f, 0.004f, 0.24f, 1.5f, 0.004f, 1.0f, 1.5f, 0.001f};
+const float const_pid_vars[9] =
+{ 0.24f, 1.5f, 0.004f, 0.24f, 1.5f, 0.004f, 1.0f, 1.5f, 0.001f };
 float pid_vars[9];
 
 const float RC = 0.007958;  // 1/(2*PI*_fCut fcut = 20 from Ardupilot
@@ -66,14 +67,7 @@ void control(int16_t thrust_set, int16_t roll_set, int16_t nick_set, int16_t gie
 {
 
     // prevents motor stop, hopefully
-    if (gier_set > 200)
-    {
-        gier_set = 200;
-    }
-    else if (gier_set < -200)
-    {
-        gier_set = -200;
-    }
+    gier_set = gier_set < -400 ? -400 : ( gier_set > 400 ? 400 : gier_set );
 
     servos[3] = thrust_set - roll_set + nick_set + gier_set;  // Motor front left  CCW
     servos[1] = thrust_set + roll_set + nick_set - gier_set;  // Motor front right CW
@@ -83,40 +77,10 @@ void control(int16_t thrust_set, int16_t roll_set, int16_t nick_set, int16_t gie
     // It is essential that these statements are completed within the current period before
     // the values are taken by HAL_TIM_PWM_PulseFinishedCallback (in servo.c).
     // That is < 1ms since PeriodElapsed flag was set.
-    if (servos[0] > 4000)
-    {
-        servos[0] = 4000;
-    }
-    else if (servos[0] < 2000)
-    {
-        servos[0] = 2000;
-    }
-
-    if (servos[1] > 4000)
-    {
-        servos[1] = 4000;
-    }
-    else if (servos[1] < 2000)
-    {
-        servos[1] = 2000;
-    }
-
-    if (servos[2] > 4000)
-    {
-        servos[2] = 4000;
-    }
-    else if (servos[2] < 2000)
-    {
-        servos[2] = 2000;
-    }
-    if (servos[3] > 4000)
-    {
-        servos[3] = 4000;
-    }
-    else if (servos[3] < 2000)
-    {
-        servos[3] = 2000;
-    }
+    servos[0] = servos[0] < 4000 ? 4000 : (servos[0] > 8000 ? 8000 : servos[0]);
+    servos[1] = servos[1] < 4000 ? 4000 : (servos[1] > 8000 ? 8000 : servos[1]);
+    servos[2] = servos[2] < 4000 ? 4000 : (servos[2] > 8000 ? 8000 : servos[2]);
+    servos[3] = servos[3] < 4000 ? 4000 : (servos[3] > 8000 ? 8000 : servos[3]);
 
     /*
      Mapping:
@@ -139,10 +103,10 @@ void control(int16_t thrust_set, int16_t roll_set, int16_t nick_set, int16_t gie
 
 void halt_reset(void)
 {
-    servos[0] = 2000;
-    servos[1] = 2000;
-    servos[2] = 2000;
-    servos[3] = 2000;
+    servos[0] = 4000;
+    servos[1] = 4000;
+    servos[2] = 4000;
+    servos[3] = 4000;
     last_derivative[x] = 0.0f;
     last_derivative[y] = 0.0f;
     last_derivative[z] = 0.0f;

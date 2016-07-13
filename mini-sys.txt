@@ -1,6 +1,6 @@
 Configuration	mini-sys
 STM32CubeMX 	4.15.1
-Date	07/05/2016
+Date	07/12/2016
 MCU	STM32F103C8Tx
 
 

@@ -28,32 +28,25 @@ uint8_t BSP_MPU_Init(uint8_t sample_rate_div, uint8_t GY_low_pass_filter, uint8_
 
     uint8_t MPU_Init_Data[MPU_InitRegNum][2] =
     {
-    { 0x80, MPUREG_PWR_MGMT_1 },     // Reset Device
-            { 0x01, MPUREG_PWR_MGMT_1 },     // Clock Source
-            { 0x00, MPUREG_PWR_MGMT_2 },     // Enable Acc & Gyro
-            { GY_low_pass_filter, MPUREG_CONFIG },   // Use DLPF set Gyroscope bandwidth and temperature 0=250Hz
-            { sample_rate_div, MPUREG_SMPLRT_DIV }, // sample_rate_div RATE=internal_RATE / (div + 1)
-            { 0x18, MPUREG_GYRO_CONFIG },    // +-2000dps, Bit 0-1 unset (FCHOICE_B) enables LPF (FCHOICE set)
-            { 0x08, MPUREG_ACCEL_CONFIG },   // +-4G
-            { AC_low_pass_filter, MPUREG_ACCEL_CONFIG_2 }, // Set Acc Data Rates, Enable Acc LPF  ACCEL_FCHOICE_B (Bit3), LPF Bit 0-2
-                                                           // Bit 3 = 0 (ACCEL_FCHOICE = 1) and Bit 0 - 2 = 0 ->  LPF enabled, BW 460 Hz, Rate 1kHz
-            { 0x30, MPUREG_INT_PIN_CFG },    //
-            //{0x40, MPUREG_I2C_MST_CTRL},   // I2C Speed 348 kHz
-            //{0x20, MPUREG_USER_CTRL},      // Enable AUX
-            { 0x30, MPUREG_USER_CTRL },       // I2C Master mode
-            { 0x0D, MPUREG_I2C_MST_CTRL }, //  I2C configuration multi-master  IIC 400KHz
-
-            { AK8963_I2C_ADDR, MPUREG_I2C_SLV0_ADDR },  //Set the I2C slave addres of AK8963 and set for write.
-            //{0x09, MPUREG_I2C_SLV4_CTRL},
-            //{0x81, MPUREG_I2C_MST_DELAY_CTRL}, //Enable I2C delay
-
-            { AK8963_CNTL2, MPUREG_I2C_SLV0_REG }, //I2C slave 0 register address from where to begin data transfer
-            { 0x01, MPUREG_I2C_SLV0_DO }, // Reset AK8963
-            { 0x81, MPUREG_I2C_SLV0_CTRL },  //Enable I2C and set 1 byte
-
-            { AK8963_CNTL1, MPUREG_I2C_SLV0_REG }, //I2C slave 0 register address from where to begin data transfer
-            { 0x12, MPUREG_I2C_SLV0_DO }, // Register value to continuous measurement in 16bit
-            { 0x81, MPUREG_I2C_SLV0_CTRL }  //Enable I2C and set 1 byte
+        { 0x80, MPUREG_PWR_MGMT_1 },     // Reset Device
+        { 0x01, MPUREG_PWR_MGMT_1 },     // Clock Source
+        { 0x00, MPUREG_PWR_MGMT_2 },     // Enable Acc & Gyro
+        { GY_low_pass_filter, MPUREG_CONFIG },   // Use DLPF set Gyroscope bandwidth and temperature 0=250Hz
+        { sample_rate_div, MPUREG_SMPLRT_DIV }, // sample_rate_div RATE=internal_RATE / (div + 1)
+        { 0x18, MPUREG_GYRO_CONFIG },    // +-2000dps, Bit 0-1 unset (FCHOICE_B) enables LPF (FCHOICE set)
+        { 0x08, MPUREG_ACCEL_CONFIG },   // +-4G
+        { AC_low_pass_filter, MPUREG_ACCEL_CONFIG_2 }, // Set Acc Data Rates, Enable Acc LPF  ACCEL_FCHOICE_B (Bit3), LPF Bit 0-2
+                                                       // Bit 3 = 0 (ACCEL_FCHOICE = 1) and Bit 0 - 2 = 0 ->  LPF enabled, BW 460 Hz, Rate 1kHz
+        { 0x30, MPUREG_INT_PIN_CFG },    //
+        { 0x30, MPUREG_USER_CTRL },       // I2C Master mode
+        { 0x0D, MPUREG_I2C_MST_CTRL }, //  I2C configuration multi-master  IIC 400KHz
+        { AK8963_I2C_ADDR, MPUREG_I2C_SLV0_ADDR },  //Set the I2C slave addres of AK8963 and set for write.
+        { AK8963_CNTL2, MPUREG_I2C_SLV0_REG }, //I2C slave 0 register address from where to begin data transfer
+        { 0x01, MPUREG_I2C_SLV0_DO }, // Reset AK8963
+        { 0x81, MPUREG_I2C_SLV0_CTRL },  //Enable I2C and set 1 byte
+        { AK8963_CNTL1, MPUREG_I2C_SLV0_REG }, //I2C slave 0 register address from where to begin data transfer
+        { 0x12, MPUREG_I2C_SLV0_DO }, // Register value to continuous measurement in 16bit
+        { 0x81, MPUREG_I2C_SLV0_CTRL }  //Enable I2C and set 1 byte
 
     };
 
@@ -122,9 +115,9 @@ uint8_t BSP_MPU_set_acc_scale(uint8_t scale)
     return temp_scale;
 }
 
-uint8_t BSP_MPU_set_gyro_scale(uint8_t scale)
+uint16_t BSP_MPU_set_gyro_scale(uint8_t scale)
 {
-    unsigned int temp_scale;
+    uint16_t temp_scale;
     MPU_IO_WriteReadReg(MPUREG_GYRO_CONFIG, scale);
     switch (scale)
     {

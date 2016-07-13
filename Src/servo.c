@@ -1,7 +1,7 @@
 #include "servo.h"
 
 volatile uint16_t servos[4] =
-{ 2000, 2000, 2000, 2000 }; //servo pulse width 1000 to 2000 us step 0.5 us (2 MHz clock)
+{ 4000, 4000, 4000, 4000 }; //servo pulse width 1000 to 2000 us step 0.25 us (4 MHz clock)
 volatile uint8_t PeriodElapsed = 0;
 
 /**

@@ -24,7 +24,7 @@ void    MPU_IO_CSState(uint8_t val);
 uint8_t BSP_MPU_Init(uint8_t sample_rate_div, uint8_t GY_low_pass_filter, uint8_t AC_low_pass_filter);
 uint8_t BSP_MPU_Whoami();
 uint8_t BSP_MPU_set_acc_scale(uint8_t scale);
-uint8_t BSP_MPU_set_gyro_scale(uint8_t scale);
+uint16_t BSP_MPU_set_gyro_scale(uint8_t scale);
 void    BSP_MPU_ReadRegs( uint8_t ReadAddr, uint8_t *ReadBuf, uint8_t Bytes );
 void    BSP_MPU_ReadRegs( uint8_t WriteAddr, uint8_t *WriteBuf, uint8_t Bytes );
 void    BSP_MPU_read_rot();
