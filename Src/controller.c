@@ -69,8 +69,8 @@ void control(int16_t thrust_set, int16_t roll_set, int16_t nick_set, int16_t gie
     // prevents motor stop, hopefully
     gier_set = gier_set < -400 ? -400 : ( gier_set > 400 ? 400 : gier_set );
 
-    servos[3] = thrust_set - roll_set + nick_set + gier_set;  // Motor front left  CCW
-    servos[1] = thrust_set + roll_set + nick_set - gier_set;  // Motor front right CW
+    servos[1] = thrust_set - roll_set + nick_set + gier_set;  // Motor front left  CCW
+    servos[3] = thrust_set + roll_set + nick_set - gier_set;  // Motor front right CW
     servos[0] = thrust_set - roll_set - nick_set - gier_set;  // Motor rear left   CW
     servos[2] = thrust_set + roll_set - nick_set + gier_set;  // Motor rear right  CCW
 

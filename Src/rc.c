@@ -10,19 +10,38 @@ volatile uint16_t back_channels[16] =
 volatile uint16_t RC_ERROR = 0;
 volatile uint8_t RC_RECEIVED = 0;
 
+// function pointers to implementation specific callback functions
 void (*UART_RxCpltCallback)(UART_HandleTypeDef*) = NULL;
 void (*UART_ErrorCallback)(UART_HandleTypeDef*) = NULL;
 
+/**
+ * @brief  Wrapper to Rx frame transfer completed callbacks, get channel values
+ * @param  huart: Pointer to a UART_HandleTypeDef structure that contains
+ *                the configuration information for the specified UART module.
+ * @retval None
+ */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
     UART_RxCpltCallback(huart);
 }
 
+/**
+ * @brief  Wrapper to UART error callbacks.
+ * @param  huart: Pointer to a UART_HandleTypeDef structure that contains
+ *                the configuration information for the specified UART module.
+ * @retval None
+ */
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
     UART_ErrorCallback(huart);
 }
 
+/**
+ * @brief  Rx frame transfer completed callbacks, get channel values
+ * @param  huart: Pointer to a UART_HandleTypeDef structure that contains
+ *                the configuration information for the specified UART module.
+ * @retval None
+ */
 void HAL_UART_RxCpltCallback_SRXL(UART_HandleTypeDef *huart)
 {
     uint16_t i;
@@ -72,15 +91,19 @@ void HAL_UART_RxCpltCallback_SRXL(UART_HandleTypeDef *huart)
 
             RC_RECEIVED = 1;
         }
+        else
+        {
+            RC_ERROR++;
+        }
     }
     else
     {
         // if TX is started first the first interrupt read could hit
-        // any point within the s-bus frame
+        // any point within the srxl frame
         // delay start of next read until we hit the gap between s-bus frames
         // and get in sync
         // HAL_Delay do not work here
-        for (i = 0; i < 8000; i++) // 5ms
+        for (i = 0; i < 5000; i++) // ~3.2ms
         {
             HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_1);
         }
@@ -129,7 +152,7 @@ void HAL_UART_RxCpltCallback_SBUS(UART_HandleTypeDef *huart)
         // delay start of next read until we hit the gap between s-bus frames
         // and get in sync
         // HAL_Delay do not work here
-        for (i = 0; i < 8000; i++) // 5ms
+        for (i = 0; i < 5000; i++) // ~3.2ms
         {
             HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_1);
         }

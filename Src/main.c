@@ -69,9 +69,6 @@ uint8_t res;
 FRESULT fres;
 DIR directory;
 FATFS SD_FatFs; /* File system object for SD card logical drive */
-UINT BytesWritten, BytesRead;
-uint32_t size = 0;
-uint8_t *ptr = NULL;
 float volt1 = 0.0f;
 uint32_t free_ram;
 char buf[50] =
@@ -257,11 +254,12 @@ int main(void)
             else // armed, flight mode
             {
                 // just attitude hold mode
+                // full stick equals 250 degrees per second
                 diffroll = gy[x] * 8.0f - (float) channels[1] + MIDDLE_POS; // native middle positions
                 diffnick = gy[y] * 8.0f - (float) channels[2] + MIDDLE_POS;
                 diffgier = gy[z] * 8.0f + (float) channels[3] - MIDDLE_POS; // control reversed, gy right direction
 
-                thrust_set = (int16_t) channels[0] + LOW_OFFS; // native middle position
+                thrust_set = (int16_t) channels[0] + LOW_OFFS; // native middle position and 134 % are set
                 roll_set = pid(x, diffroll, pid_vars[RKp], pid_vars[RKi], pid_vars[RKd], 5.0f);
                 nick_set = pid(y, diffnick, pid_vars[NKp], pid_vars[NKi], pid_vars[NKd], 5.0f);
                 gier_set = pid(z, diffgier, pid_vars[GKp], pid_vars[GKi], pid_vars[GKd], 5.0f);
@@ -426,7 +424,7 @@ int main(void)
                 }
 
                 // beeper not enabled in program mode (program switch channels[7] low value)
-                // let default value of 1000 included for beeping
+                // let default value of 2000 included for beeping
                 if ((volt1 < 10.2f || channels[6] > 2000) && (channels[7] > 1800))
                 {
                     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
