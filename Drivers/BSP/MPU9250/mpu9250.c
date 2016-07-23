@@ -4,8 +4,14 @@
 
 static float invSqrt(float x);
 
-#define twoKpDef        (2.0f * 8.0f)   // 2 * proportional gain
-#define twoKiDef        (2.0f * 0.8f)   // 2 * integral gain
+//#define twoKpDef        (2.0f * 8.0f)   // 2 * proportional gain
+//#define twoKiDef        (2.0f * 0.8f)   // 2 * integral gain
+
+//#define twoKpDef        (2.0f * 1.0f)   // 2 * proportional gain
+//#define twoKiDef        (2.0f * 0.5f)   // 2 * integral gain
+
+#define twoKiDef        (2.0f * 0.0f)   // 2 * integral gain
+#define twoKpDef        (2.0f * 0.5f)   // 2 * proportional gain
 
 float twoKp = twoKpDef;                                             // 2 * proportional gain (Kp)
 float twoKi = twoKiDef;                                             // 2 * integral gain (Ki)
@@ -245,9 +251,9 @@ void BSP_MPU_updateIMU(float ax, float ay, float az, float gx, float gy, float g
     dt /= 1000.0f;
 
     // degrees to radiant conversion
-    gx *= 0.01745;
-    gy *= 0.01745;
-    gz *= 0.01745;
+    gx *= 0.0174533f;
+    gy *= 0.0174533f;
+    gz *= 0.0174533f;
 
     // Compute feedback only if accelerometer measurement valid (avoids NaN in accelerometer normalisation)
     if (!((ax == 0.0f) && (ay == 0.0f) && (az == 0.0f)))
@@ -269,6 +275,7 @@ void BSP_MPU_updateIMU(float ax, float ay, float az, float gx, float gy, float g
         halfey = (az * halfvx - ax * halfvz);
         halfez = (ax * halfvy - ay * halfvx);
 
+        /*
         // Compute and apply integral feedback if enabled
         if (twoKi > 0.0f)
         {
@@ -285,6 +292,7 @@ void BSP_MPU_updateIMU(float ax, float ay, float az, float gx, float gy, float g
             integralFBy = 0.0f;
             integralFBz = 0.0f;
         }
+        */
 
         // Apply proportional feedback
         gx += twoKp * halfex;

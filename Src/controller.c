@@ -17,7 +17,12 @@ float integrator[3];
 //##############################  RKp    RKi    RKd    NKp    NKi   NKd     GKp   GKi    GKd
 const float const_pid_vars[9] =
 { 0.24f, 1.5f, 0.004f, 0.24f, 1.5f, 0.004f, 1.0f, 1.5f, 0.001f };
+
+const float const_l_pid_vars[9] =
+{ 0.1f, 0.03f, 0.02f, 0.1f, 0.03f, 0.02f, 1.0f, 1.5f, 0.001f };
+
 float pid_vars[9];
+float l_pid_vars[9];
 
 const float RC = 0.007958;  // 1/(2*PI*_fCut fcut = 20 from Ardupilot
 

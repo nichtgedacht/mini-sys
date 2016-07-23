@@ -218,6 +218,7 @@ int main(void)
         for (i = 0; i < 9; i++)
         {
             pid_vars[i] = const_pid_vars[i];
+            l_pid_vars[i] = const_l_pid_vars[i];
         }
     }
 
@@ -230,7 +231,6 @@ int main(void)
         /* USER CODE END WHILE */
 
         /* USER CODE BEGIN 3 */
-
         //systick_val1 = SysTick->VAL;
         if (PeriodElapsed == 1) // 200 Hz from servo timer
         {
@@ -247,36 +247,63 @@ int main(void)
             BSP_MPU_read_rot();
             BSP_MPU_read_acc();
 
+            BSP_MPU_updateIMU(ac[x], ac[y], ac[z], gy[x], gy[y], gy[z], 5.0f);
+            BSP_MPU_getEuler(&roll, &pitch, &yaw);
+
             if (channels[4] < 2400 || failsafe_counter > 40) // motor stop
             {
                 halt_reset();
             }
             else // armed, flight mode
             {
-                // just attitude hold mode
-                // full stick equals 250 degrees per second
-                diffroll = gy[x] * 8.0f - (float) channels[1] + MIDDLE_POS; // native middle positions
-                diffnick = gy[y] * 8.0f - (float) channels[2] + MIDDLE_POS;
-                diffgier = gy[z] * 8.0f + (float) channels[3] - MIDDLE_POS; // control reversed, gy right direction
 
-                thrust_set = (int16_t) channels[0] + LOW_OFFS; // native middle position and 134 % are set
-                roll_set = pid(x, diffroll, pid_vars[RKp], pid_vars[RKi], pid_vars[RKd], 5.0f);
-                nick_set = pid(y, diffnick, pid_vars[NKp], pid_vars[NKi], pid_vars[NKd], 5.0f);
+                if (channels[5] < 1200)
+                {
+                    // attitude hold mode
+                    // full stick equals 250 degrees per second
+                    diffroll = gy[x] * 8.0f - (float) channels[1] + MIDDLE_POS; // native middle positions
+                    diffnick = gy[y] * 8.0f - (float) channels[2] + MIDDLE_POS;
+
+                    roll_set = pid(x, diffroll, pid_vars[RKp], pid_vars[RKi], pid_vars[RKd], 5.0f);
+                    nick_set = pid(y, diffnick, pid_vars[NKp], pid_vars[NKi], pid_vars[NKd], 5.0f);
+
+                }
+                else
+                {
+                    // level hold mode
+                    // full stick 45 degrees
+                    diffroll = roll * 2000.0f / (M_PI / 4.0f)  - (float) channels[1] + MIDDLE_POS;
+                    diffnick = pitch * 2000.0f / (M_PI / 4.0f)  - (float) channels[2] + MIDDLE_POS;
+
+                    roll_set = pid(x, diffroll, l_pid_vars[RKp], l_pid_vars[RKi], l_pid_vars[RKd], 5.0f);
+                    nick_set = pid(y, diffnick, l_pid_vars[NKp], l_pid_vars[NKi], l_pid_vars[NKd], 5.0f);
+
+                }
+
+                diffgier = gy[z] * 8.0f + (float) channels[3] - MIDDLE_POS; // control reversed, gy right direction
                 gier_set = pid(z, diffgier, pid_vars[GKp], pid_vars[GKi], pid_vars[GKd], 5.0f);
+
+                // scale thrust channel to have space for governor if max thrust is set
+                thrust_set = rintf((float) channels[0] * 0.85f) + LOW_OFFS; // native middle position and 134 % are set
+                //thrust_set = (int16_t) channels[0] + LOW_OFFS; // native middle position and 134 % are set
 
                 control(thrust_set, roll_set, nick_set, gier_set);
                 // assured finished before first servo update by HAL_TIM_PWM_PulseFinishedCallback
+                // 482 us max since PeriodElapsed flag detected
 
                 //systick_val2 = SysTick->VAL;
-                //sprintf(buf, "elapsed: %ld usec\n", (systick_val1 - systick_val2) / 72);
+                //sprintf(buf, "elapsed: %ld usec\n", (systick_val1 - systick_val2) / 72 );
+
+                //sprintf(buf, "diffroll %3.3f\n", diffroll);
+
             }
 
             //tick = HAL_GetTick();
             //dt = tick - prev_tick;
             //prev_tick = tick;
 
-            BSP_MPU_updateIMU(ac[x], ac[y], ac[z], gy[x], gy[y], gy[z], 5.0f);
-            BSP_MPU_getEuler(&roll, &pitch, &yaw);
+//            BSP_MPU_updateIMU(ac[x], ac[y], ac[z], gy[x], gy[y], gy[z], 5.0f);
+//            BSP_MPU_getEuler(&roll, &pitch, &yaw);
 
             //free_ram = (0x20000000 + 1024 * 20) - (uint32_t) sbrk((int)0);
             //sprintf(buf, "free: %ld\n", free_ram);
@@ -285,12 +312,12 @@ int main(void)
 
             //sprintf(buf, "%d %d %d %d %d %d\n", channels[0], channels[1], channels[2], channels[3] , channels[4], channels[5]);
             //sprintf(buf, "dt: %ld\n", dt);
-            //sprintf(buf, "%3.3f,%3.3f,%3.3f\n", yaw, pitch, roll);
+            ////sprintf(buf, "%3.3f,%3.3f,%3.3f\n", yaw, pitch, roll);
             //sprintf(buf, "%3.3f,%3.3f,%3.3f,%3.3f,%3.3f,%3.3f\n", ac[x], ac[y], ac[z], gy[x], gy[y], gy[z]);
             //sprintf(buf, "%d %d %d %d\n", servos[0], servos[1], servos[2], servos[3]);
             //sprintf(buf, "%3.3f %3.3f %3.3f %ld %ld\n", gy[x], gy[y], gy[z], dt, idle_counter);
             //sprintf(buf, "HAL_UART_ERROR: %d\n", HAL_UART_ERROR);
-            //sprintf(buf, "roll_set: %d\n", roll_set);
+            //sprintf(buf, "thrust_set: %d channels[0]: %d LOW_OFFS: %d\n", thrust_set, channels[0], LOW_OFFS);
 
             // do it in time pieces
             if (counter == 4)
@@ -425,7 +452,7 @@ int main(void)
 
                 // beeper not enabled in program mode (program switch channels[7] low value)
                 // let default value of 2000 included for beeping
-                if ((volt1 < 10.2f || channels[6] > 2000) && (channels[7] > 1800))
+                if ((volt1 < 10.5f || channels[6] > 2000) && (channels[7] > 1800))
                 {
                     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
                 }
@@ -441,7 +468,7 @@ int main(void)
                 HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
             }
 
-            // CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
+            //CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
             idle_counter = 0;
 
         }
@@ -530,32 +557,38 @@ void draw_program_pid_values(uint8_t line, float value, char* format, uint8_t in
     // if indexer points to current line and we are in program mode ( channels[7] low )
     // and WriteUse switch is not in upper position, then
     // the new value adjustable by variable knob (channels[8]) is shown
-    if ((indexer == line - offset) && (channels[7] < 1600) && (channels[9] < 2400))
+    if ((indexer == line - offset) && (channels[7] < 1600) && (channels[9] < 3000))
     {
         switch (indexer)
         {
         case 0: //RKp
-            value = (float) channels[8] / 8000.0f;
+            value = (float) channels[8] / 4000.0f;
+            //value = (float) channels[8] / 8000.0f;
             break;
 
         case 1: //RKi
-            value = (float) channels[8] / 2000.0f;
+            value = (float) channels[8] / 4000.0f;
+            //value = (float) channels[8] / 2000.0f;
             break;
 
         case 2: //RKd
-            value = (float) channels[8] / 200000.0f;
+            value = (float) channels[8] / 50000.0f;
+            //value = (float) channels[8] / 200000.0f;
             break;
 
         case 3:  //NKp
-            value = (float) channels[8] / 8000.0f;
+            value = (float) channels[8] / 4000.0f;
+            //value = (float) channels[8] / 8000.0f;
             break;
 
         case 4:  //NKi
-            value = (float) channels[8] / 2000.0f;
+            value = (float) channels[8] / 4000.0f;
+            //value = (float) channels[8] / 2000.0f;
             break;
 
         case 5:  //NKd
-            value = (float) channels[8] / 200000.0f;
+            value = (float) channels[8] / 50000.0f;
+            //value = (float) channels[8] / 200000.0f;
             break;
 
         case 6:  //GKp

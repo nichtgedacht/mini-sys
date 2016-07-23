@@ -37,7 +37,9 @@ extern const float GKd;
 */
 
 extern float pid_vars[9];
+extern float l_pid_vars[9];
 extern const float const_pid_vars[9];
+extern const float const_l_pid_vars[9];
 
 enum { RKp, RKi, RKd, NKp, NKi, NKd, GKp, GKi, GKd };
 
