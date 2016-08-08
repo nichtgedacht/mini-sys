@@ -176,6 +176,33 @@ int main(void)
     yp = BSP_LCD_GetYSize() / 2;
 #endif
 
+#ifdef HAVE_SD_CARD
+    //############ init SD-card, signal errors by LED ######################
+    res = BSP_SD_Init();
+
+    if (res != BSP_SD_OK)
+    {
+        Error_Handler();
+    }
+    else
+    {
+        fres = f_mount(&SD_FatFs, (TCHAR const*) "/", 0);
+        sprintf(buf, "f_mount: %d", fres);
+
+        if (fres != FR_OK)
+        {
+            Error_Handler();
+        }
+        else
+        {
+            for (i = 0; i < MAX_BMP_FILES; i++)
+            {
+                pDirectoryFiles[i] = malloc(11);
+            }
+        }
+    }
+#endif
+
     // Start servo pulse generation
     // pulse finish callback updates length of next pulse
     HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_1);
@@ -191,33 +218,6 @@ int main(void)
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET);
     HAL_Delay(100);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET);
-
-#ifdef HAVE_SD_CARD
-    //############ init SD-card, signal errors by LED ######################
-    res = BSP_SD_Init();
-
-    if (res != BSP_SD_OK)
-    {
-        Error_Handler();
-    }
-    else
-    {
-        fres = f_mount(&SD_FatFs, (TCHAR const*) "/", 0);
-        sprintf(buf, "f_mount: %d", fres);
-    }
-
-    if (fres != FR_OK)
-    {
-        Error_Handler();
-    }
-    else
-    {
-        for (i = 0; i < MAX_BMP_FILES; i++)
-        {
-            pDirectoryFiles[counter] = malloc(11);
-        }
-    }
-#endif
 
     //############ end init SD-card, signal errors by LED ##################
 
@@ -749,8 +749,8 @@ void Error_Handler(void)
 {
     /* USER CODE BEGIN Error_Handler */
     /* User can add his own implementation to report the HAL error return state */
-    uint8_t counter;
-    for (counter = 0; counter < 6; counter++)
+    uint8_t i;
+    for (i = 0; i < 6; i++)
     {
         HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_1);
         HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
@@ -774,7 +774,7 @@ void assert_failed(uint8_t* file, uint32_t line)
     /* User can add his own implementation to report the file name and line number,
      ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
     /* USER CODE END 6 */
-
+00
 }
 
 #endif
