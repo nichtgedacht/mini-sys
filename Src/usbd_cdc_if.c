@@ -59,8 +59,9 @@
 /* USER CODE BEGIN PRIVATE_DEFINES */
 /* Define size for the receive and transmit buffer over CDC */
 /* It's up to user to redefine and/or remove those define */
-#define APP_RX_DATA_SIZE  4
-#define APP_TX_DATA_SIZE  4
+// in header now
+//#define APP_RX_DATA_SIZE  16
+//#define APP_TX_DATA_SIZE  4
 /* USER CODE END PRIVATE_DEFINES */
 /**
   * @}
@@ -89,6 +90,12 @@ uint8_t UserTxBufferFS[APP_TX_DATA_SIZE];
 
 /* USER CODE BEGIN PRIVATE_VARIABLES */
 USBD_HandleTypeDef  *hUsbDevice_0;
+
+// make it two dimensional for future use
+uint8_t received_data[MAX_RX_DATA][APP_RX_DATA_SIZE];
+
+static uint8_t cmd_index=0;
+
 /* USER CODE END PRIVATE_VARIABLES */
 
 /**
@@ -253,9 +260,15 @@ static int8_t CDC_Control_FS  (uint8_t cmd, uint8_t* pbuf, uint16_t length)
 static int8_t CDC_Receive_FS (uint8_t* Buf, uint32_t *Len)
 {
   /* USER CODE BEGIN 6 */
+  // store string in UserRxBufferFS at next received_data index
+  memcpy(&received_data[cmd_index][0], Buf, *Len);
+  cmd_index = cmd_index < MAX_RX_DATA - 1 ? cmd_index + 1 : 0;
+
   USBD_CDC_SetRxBuffer(hUsbDevice_0, &Buf[0]);
   USBD_CDC_ReceivePacket(hUsbDevice_0);
+
   return (USBD_OK);
+
   /* USER CODE END 6 */ 
 }
 

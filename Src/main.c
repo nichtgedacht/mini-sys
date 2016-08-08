@@ -54,6 +54,7 @@
 #include "servo.h"
 #include "controller.h"
 #include "flash.h"
+#include "config.h"
 
 /* USER CODE END Includes */
 
@@ -61,6 +62,8 @@
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
+
+typedef void (*pFunction)(void);
 
 uint8_t counter = 0;
 uint32_t failsafe_counter = 0;
@@ -85,6 +88,9 @@ float cp_pid_vars[9];
 uint8_t i;
 uint8_t indexer = 0;
 uint32_t systick_val1, systick_val2;
+uint32_t BOOTLOADER_ADDRESS = 0x08000000;
+uint32_t JumpAddress;
+pFunction JumpToBootloader;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -93,7 +99,9 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
+#ifdef HAVE_DISPLAY
 void draw_program_pid_values(uint8_t line, float value, char* format, uint8_t index, uint8_t offset);
+#endif
 
 /* USER CODE END PFP */
 
@@ -127,16 +135,17 @@ int main(void)
 
     MX_FATFS_Init();
 
-    /*
-     // alternative SBUS
-     MX_SBUS_USART1_UART_Init();
-     UART_RxCpltCallback = &HAL_UART_RxCpltCallback_SBUS;
-     UART_ErrorCallback = &HAL_UART_ErrorCallback_SBUS;
-     // Request first 25 bytes s-bus frame from uart, uart_data becomes filled per interrupts
-     // Get callback if ready. Callback function starts next request
-     HAL_UART_Receive_IT(&huart1, (uint8_t*) uart_data, 25);
-     */
+#ifdef USE_SBUS
+    // alternative SBUS
+    MX_SBUS_USART1_UART_Init();
+    UART_RxCpltCallback = &HAL_UART_RxCpltCallback_SBUS;
+    UART_ErrorCallback = &HAL_UART_ErrorCallback_SBUS;
+    // Request first 25 bytes s-bus frame from uart, uart_data becomes filled per interrupts
+    // Get callback if ready. Callback function starts next request
+    HAL_UART_Receive_IT(&huart1, (uint8_t*) uart_data, 25);
+#endif
 
+#ifdef USE_SRXL
     // alternative SRXL16 (Multiplex) aka UDI16 (Jeti)
     MX_USART1_UART_Init();
     UART_RxCpltCallback = &HAL_UART_RxCpltCallback_SRXL;
@@ -144,6 +153,7 @@ int main(void)
     // Request first 35 bytes srxl frame from uart, uart_data becomes filled per interrupts
     // Get callback if ready. Callback function starts next request
     HAL_UART_Receive_IT(&huart1, (uint8_t*) uart_data, 35);
+#endif
 
     // no sample rate divider (0+1), accel: lowpass filter bandwidth 460 Hz, Rate 1kHz, gyro: lowpass filter bandwidth 250 Hz
     // gyro lpf, 3. parameter:
@@ -155,10 +165,16 @@ int main(void)
     HAL_Delay(2000);
     BSP_MPU_GyroCalibration();
 
+#ifdef HAVE_DISPLAY
     BSP_LCD_Init();
     BSP_LCD_Clear(LCD_COLOR_BLACK);
     BSP_LCD_SetRotation(0);
     BSP_LCD_SetFont(&Font12);
+
+    //for water bubble
+    xp = BSP_LCD_GetXSize() / 2;
+    yp = BSP_LCD_GetYSize() / 2;
+#endif
 
     // Start servo pulse generation
     // pulse finish callback updates length of next pulse
@@ -171,13 +187,12 @@ int main(void)
     // Period elapsed callback sets flag PeriodElapsed
     __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_UPDATE);
 
-    //for water bubble
-    xp = BSP_LCD_GetXSize() / 2;
-    yp = BSP_LCD_GetYSize() / 2;
-
     // enable USB on maple mine clone or use reset as default state
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET);
+    HAL_Delay(100);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET);
 
+#ifdef HAVE_SD_CARD
     //############ init SD-card, signal errors by LED ######################
     res = BSP_SD_Init();
 
@@ -197,30 +212,68 @@ int main(void)
     }
     else
     {
-        for (counter = 0; counter < MAX_BMP_FILES; counter++)
+        for (i = 0; i < MAX_BMP_FILES; i++)
         {
             pDirectoryFiles[counter] = malloc(11);
         }
     }
+#endif
 
     //############ end init SD-card, signal errors by LED ##################
 
+#ifdef HAVE_DISPLAY
     // if program switch is on ( channels[7] low value ) and WriteUse switch
     // ( channels[9] ) is in the upper position copy pid_vars from upper flash page to ram
     if (channels[9] > 2400 && channels[7] < 1600)
     {
         // pid_vars from upper flash page to ram
-        read_flash_vars(pid_vars, 9);
+        read_flash_fvars(pid_vars, 9, 0);
+        read_flash_fvars(l_pid_vars, 9, 9);
+
+        for (i = 0; i < 9; i++)
+        {
+            if (isnan(pid_vars[i]) || isnan(l_pid_vars[i]))
+            {
+                // pid_vars not programmed in flash page, do it now using default vars
+                if (erase_flash_page() != HAL_OK)
+                {
+                    Error_Handler();
+                }
+                else
+                {
+                    if (write_flash_fvars((float*) const_pid_vars, 9, 0) != HAL_OK)
+                    {
+                        Error_Handler();
+                    }
+                    if (write_flash_fvars((float*) const_l_pid_vars, 9, 9 * 4) != HAL_OK)
+                    {
+                        Error_Handler();
+                    }
+                }
+                // pid_vars from constant flash values to ram instead
+                for (i = 0; i < 9; i++)
+                {
+                    pid_vars[i] = const_pid_vars[i];
+                    l_pid_vars[i] = const_l_pid_vars[i];
+                }
+
+                break;
+            }
+        }
     }
     else
     {
         // pid_vars from constant flash values to ram
         for (i = 0; i < 9; i++)
         {
+#endif
             pid_vars[i] = const_pid_vars[i];
             l_pid_vars[i] = const_l_pid_vars[i];
+
+#ifdef HAVE_DISPLAY
         }
     }
+#endif
 
     /* USER CODE END 2 */
 
@@ -272,8 +325,8 @@ int main(void)
                 {
                     // level hold mode
                     // full stick 45 degrees
-                    diffroll = roll * 2000.0f / (M_PI / 4.0f)  - (float) channels[1] + MIDDLE_POS;
-                    diffnick = pitch * 2000.0f / (M_PI / 4.0f)  - (float) channels[2] + MIDDLE_POS;
+                    diffroll = roll * 2000.0f / (M_PI / 4.0f) - (float) channels[1] + MIDDLE_POS;
+                    diffnick = pitch * 2000.0f / (M_PI / 4.0f) - (float) channels[2] + MIDDLE_POS;
 
                     roll_set = pid(x, diffroll, l_pid_vars[RKp], l_pid_vars[RKi], l_pid_vars[RKd], 5.0f);
                     nick_set = pid(y, diffnick, l_pid_vars[NKp], l_pid_vars[NKi], l_pid_vars[NKd], 5.0f);
@@ -294,16 +347,12 @@ int main(void)
                 //systick_val2 = SysTick->VAL;
                 //sprintf(buf, "elapsed: %ld usec\n", (systick_val1 - systick_val2) / 72 );
 
-                //sprintf(buf, "diffroll %3.3f\n", diffroll);
 
             }
 
             //tick = HAL_GetTick();
             //dt = tick - prev_tick;
             //prev_tick = tick;
-
-//            BSP_MPU_updateIMU(ac[x], ac[y], ac[z], gy[x], gy[y], gy[z], 5.0f);
-//            BSP_MPU_getEuler(&roll, &pitch, &yaw);
 
             //free_ram = (0x20000000 + 1024 * 20) - (uint32_t) sbrk((int)0);
             //sprintf(buf, "free: %ld\n", free_ram);
@@ -312,7 +361,7 @@ int main(void)
 
             //sprintf(buf, "%d %d %d %d %d %d\n", channels[0], channels[1], channels[2], channels[3] , channels[4], channels[5]);
             //sprintf(buf, "dt: %ld\n", dt);
-            ////sprintf(buf, "%3.3f,%3.3f,%3.3f\n", yaw, pitch, roll);
+            //sprintf(buf, "%3.3f,%3.3f,%3.3f\n", yaw, pitch, roll);
             //sprintf(buf, "%3.3f,%3.3f,%3.3f,%3.3f,%3.3f,%3.3f\n", ac[x], ac[y], ac[z], gy[x], gy[y], gy[z]);
             //sprintf(buf, "%d %d %d %d\n", servos[0], servos[1], servos[2], servos[3]);
             //sprintf(buf, "%3.3f %3.3f %3.3f %ld %ld\n", gy[x], gy[y], gy[z], dt, idle_counter);
@@ -320,10 +369,10 @@ int main(void)
             //sprintf(buf, "thrust_set: %d channels[0]: %d LOW_OFFS: %d\n", thrust_set, channels[0], LOW_OFFS);
 
             // do it in time pieces
-            if (counter == 4)
+            if (counter >= 4)
             {
                 counter = 0;
-
+#ifdef HAVE_DISPLAY
                 if (channels[4] < 2400) // motor stop screen
                 {
                     // transition to motor stop clear screen
@@ -363,7 +412,11 @@ int main(void)
                             }
                             else
                             {
-                                if (write_flash_vars(pid_vars, 9) != HAL_OK)
+                                if (write_flash_fvars(pid_vars, 9, 0) != HAL_OK)
+                                {
+                                    Error_Handler();
+                                }
+                                if (write_flash_fvars(l_pid_vars, 9, 9 * 4) != HAL_OK)
                                 {
                                     Error_Handler();
                                 }
@@ -373,17 +426,32 @@ int main(void)
 
                     back_channels[6] = channels[6];
 
-                    // show and program by RC the current PID values
-                    draw_program_pid_values(2, pid_vars[RKp], "Roll Kp: %3.5f", indexer, 2);
-                    draw_program_pid_values(3, pid_vars[RKi], "Roll Ki: %3.5f", indexer, 2);
-                    draw_program_pid_values(4, pid_vars[RKd], "Roll Kd: %3.5f", indexer, 2);
-                    draw_program_pid_values(5, pid_vars[NKp], "Nick Kp: %3.5f", indexer, 2);
-                    draw_program_pid_values(6, pid_vars[NKi], "Nick Ki: %3.5f", indexer, 2);
-                    draw_program_pid_values(7, pid_vars[NKd], "Nick Kd: %3.5f", indexer, 2);
-                    draw_program_pid_values(8, pid_vars[GKp], "Gier Kp: %3.5f", indexer, 2);
-                    draw_program_pid_values(9, pid_vars[GKi], "Gier Ki: %3.5f", indexer, 2);
-                    draw_program_pid_values(10, pid_vars[GKd], "Gier Kd: %3.5f", indexer, 2);
-
+                    if (channels[5] < 1200)
+                    {
+                        // show and program by RC the current PID values
+                        draw_program_pid_values(2, pid_vars[RKp], "Roll Kp: %3.5f", indexer, 2);
+                        draw_program_pid_values(3, pid_vars[RKi], "Roll Ki: %3.5f", indexer, 2);
+                        draw_program_pid_values(4, pid_vars[RKd], "Roll Kd: %3.5f", indexer, 2);
+                        draw_program_pid_values(5, pid_vars[NKp], "Nick Kp: %3.5f", indexer, 2);
+                        draw_program_pid_values(6, pid_vars[NKi], "Nick Ki: %3.5f", indexer, 2);
+                        draw_program_pid_values(7, pid_vars[NKd], "Nick Kd: %3.5f", indexer, 2);
+                        draw_program_pid_values(8, pid_vars[GKp], "Gier Kp: %3.5f", indexer, 2);
+                        draw_program_pid_values(9, pid_vars[GKi], "Gier Ki: %3.5f", indexer, 2);
+                        draw_program_pid_values(10, pid_vars[GKd], "Gier Kd: %3.5f", indexer, 2);
+                    }
+                    else
+                    {
+                        // show and program by RC the current level flight PID values
+                        draw_program_pid_values(2, l_pid_vars[RKp], "Roll Kp: %3.5f", indexer, 2);
+                        draw_program_pid_values(3, l_pid_vars[RKi], "Roll Ki: %3.5f", indexer, 2);
+                        draw_program_pid_values(4, l_pid_vars[RKd], "Roll Kd: %3.5f", indexer, 2);
+                        draw_program_pid_values(5, l_pid_vars[NKp], "Nick Kp: %3.5f", indexer, 2);
+                        draw_program_pid_values(6, l_pid_vars[NKi], "Nick Ki: %3.5f", indexer, 2);
+                        draw_program_pid_values(7, l_pid_vars[NKd], "Nick Kd: %3.5f", indexer, 2);
+                        draw_program_pid_values(8, l_pid_vars[GKp], "Gier Kp: %3.5f", indexer, 2);
+                        draw_program_pid_values(9, l_pid_vars[GKi], "Gier Ki: %3.5f", indexer, 2);
+                        draw_program_pid_values(10, l_pid_vars[GKd], "Gier Kd: %3.5f", indexer, 2);
+                    }
                 }
                 else // armed, flight mode screen
                 {
@@ -436,6 +504,7 @@ int main(void)
 
                     //############ end water bubble ###########################
                 }
+#endif
             }
 
             if (counter == 3)
@@ -452,9 +521,16 @@ int main(void)
 
                 // beeper not enabled in program mode (program switch channels[7] low value)
                 // let default value of 2000 included for beeping
-                if ((volt1 < 10.5f || channels[6] > 2000) && (channels[7] > 1800))
+                if ((volt1 < 10.5f || channels[6] > 2000))
                 {
-                    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
+#ifdef HAVE_DISPLAY
+                    if (channels[7] > 1800)
+                    {
+#endif
+                        HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
+#ifdef HAVE_DISPLAY
+                    }
+#endif
                 }
                 else
                 {
@@ -466,6 +542,40 @@ int main(void)
             {
                 HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_1);
                 HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+            }
+
+            if (counter == 1)
+            {
+                /*
+                 read_flash_vars((uint32_t *)buf, 2, 1020);
+                 BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+                 BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
+                 BSP_LCD_FillRect(0, 1 * 12, BSP_LCD_GetXSize(), 12);
+                 BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+
+                 if (strcmp((const char *) buf, (const char *) "DFU") == 0)
+                 {
+                 BSP_LCD_DisplayStringAtLine(1, (uint8_t *) buf);
+                 }
+                 */
+            }
+
+            if (strcmp((const char *) &received_data[0][0], (const char *) "bootloader") == 0)
+            {
+                //setting flag in flash
+                //so reborn as bootloader we can know that we should not start this live immediately again
+                // write string "DFU" (4 bytes incl. trailing \0) to last 32 bit wide space of flash page
+                write_flash_vars((uint32_t*) "DFU", 1, 1020);
+
+                // is this really needed? I think it is not
+                HAL_NVIC_DisableIRQ(USB_LP_CAN1_RX0_IRQn);
+                HAL_NVIC_DisableIRQ(USART1_IRQn);
+                HAL_NVIC_DisableIRQ(TIM2_IRQn);
+
+                // set stackpointer pointing to bootloader startup and reset system
+                __set_MSP(*(__IO uint32_t*) BOOTLOADER_ADDRESS);
+                HAL_NVIC_SystemReset();
+
             }
 
             //CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
@@ -533,6 +643,7 @@ void SystemClock_Config(void)
 
 /* USER CODE BEGIN 4 */
 
+#ifdef HAVE_DISPLAY
 /**
  *  @brief Shows PID value, highlight selected line, writes new value on selected line according RC
  *  @param Number of line, PID value of this line, format string, select index, offset line to index
@@ -608,7 +719,14 @@ void draw_program_pid_values(uint8_t line, float value, char* format, uint8_t in
         // and continuously to ram (pid_vars[x]) while adjusting the value with the knob
         if (channels[6] > 2400)
         {
-            pid_vars[indexer] = value;
+            if (channels[5] < 1200)
+            {
+                pid_vars[indexer] = value;
+            }
+            else
+            {
+                l_pid_vars[indexer] = value;
+            }
         }
     }
 
@@ -619,7 +737,7 @@ void draw_program_pid_values(uint8_t line, float value, char* format, uint8_t in
     BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
     BSP_LCD_DisplayStringAtLine(line, (uint8_t *) buf);
 }
-
+#endif
 /* USER CODE END 4 */
 
 /**

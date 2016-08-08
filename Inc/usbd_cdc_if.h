@@ -55,6 +55,9 @@
   * @{
   */ 
 /* USER CODE BEGIN EXPORTED_DEFINES */
+#define APP_RX_DATA_SIZE  16
+#define APP_TX_DATA_SIZE  4
+#define MAX_RX_DATA 1
 /* USER CODE END EXPORTED_DEFINES */
 
 /**
@@ -87,6 +90,7 @@
 extern USBD_CDC_ItfTypeDef  USBD_Interface_fops_FS;
 
 /* USER CODE BEGIN EXPORTED_VARIABLES */
+extern uint8_t received_data[][APP_RX_DATA_SIZE];
 /* USER CODE END EXPORTED_VARIABLES */
 
 /**

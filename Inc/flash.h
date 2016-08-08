@@ -141,8 +141,11 @@ extern "C"
 #define FLASH_USER_END_ADDR     ADDR_FLASH_PAGE_125 + FLASH_PAGE_SIZE   // End @ of user Flash area
 
 uint32_t erase_flash_page(void);
-uint32_t write_flash_vars(float* data, uint8_t length);
-void read_flash_vars(float data[], uint8_t length);
+uint32_t write_flash_fvars(float* data, uint16_t length, uint16_t offset);
+uint32_t write_flash_vars(uint32_t* data, uint16_t length, uint16_t offset);
+void read_flash_fvars(float data[], uint16_t length, uint16_t offset);
+void read_flash_vars(uint32_t *data, uint16_t length, uint16_t offset);
+
 
 #ifdef __cplusplus
 }

@@ -28,10 +28,12 @@ uint32_t erase_flash_page(void)
     }
 }
 
-uint32_t write_flash_vars(float* data, uint8_t length)
+uint32_t write_flash_fvars(float* data, uint16_t length, uint16_t offset)
 {
     uint32_t Address = FLASH_USER_START_ADDR;
     __IO uint32_t data32;
+
+    Address += offset;
 
     HAL_FLASH_Unlock();
     while (length > 0)
@@ -54,10 +56,40 @@ uint32_t write_flash_vars(float* data, uint8_t length)
     return HAL_OK;
 }
 
-void read_flash_vars(float data[], uint8_t length)
+uint32_t write_flash_vars(uint32_t* data, uint16_t length, uint16_t offset)
 {
     uint32_t Address = FLASH_USER_START_ADDR;
-    uint8_t i;
+    __IO uint32_t data32;
+
+    Address += offset;
+
+    HAL_FLASH_Unlock();
+    while (length > 0)
+    {
+        data32 = *(__IO uint32_t *) data;
+
+        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, Address, data32) == HAL_OK)
+        {
+            Address += 4;
+            data++;
+            length--;
+        }
+        else
+        {
+            HAL_FLASH_Lock();
+            return HAL_FLASH_GetError();
+        }
+    }
+    HAL_FLASH_Lock();
+    return HAL_OK;
+}
+
+void read_flash_fvars(float data[], uint16_t length, uint16_t offset)
+{
+    uint32_t Address = FLASH_USER_START_ADDR;
+    uint16_t i;
+
+    Address += offset;
 
     for (i=0; i<length; i++)
     {
@@ -65,4 +97,20 @@ void read_flash_vars(float data[], uint8_t length)
             Address += 4;
     }
 }
+
+void read_flash_vars(uint32_t *data, uint16_t length, uint16_t offset)
+{
+    uint32_t Address = FLASH_USER_START_ADDR;
+    uint16_t i;
+
+    Address += offset;
+
+    for (i=0; i<length; i++)
+    {
+            *data = *(uint32_t*) Address;
+            Address += 4;
+            data ++;
+    }
+}
+
 
