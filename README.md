@@ -33,10 +33,26 @@ Hints for usage:
 * Optional: Install CubeMX (4.15.1) and load project to be able to modify the configuration the easy way.
 * If all code is used, now it fits only to the STM32F103CBT6 (maple mini clone) with 128k flash. You have to edit STM32F103C8Ty_FLASH.ld (64K -> 128K) after having recreated the project with CubeMX
 
+Bootloader:
+If using my bootloader (nichtgedacht/bootloader) one have to edit 2 files:
+* edit linker script STM32F103C8Tx_FLASH.ld. Change flash origin and length to: FLASH (rx) : ORIGIN = 0x8004000, LENGTH = 112K
+* edit Drivers/CMSIS/Device/ST/STM32F1xx/Source/Templates/system_stm32f1xx.c. Change VECT_TAB_OFFSET to VECT_TAB_OFFSET 0x4000
+
+This way the application will be linked properly for an offset of 16k in flash and the addresses of the interrupt vectors are correct.  
+
 Pictures:
 
-![alt tag](https://cloud.githubusercontent.com/assets/18667858/16275572/e2bb3886-38aa-11e6-898e-e376d7281282.JPG)
+![alt tag](https://cloud.githubusercontent.com/assets/18667858/17494738/589deeba-5db6-11e6-820a-5a0b6cb27699.JPG)
 
-![alt tag](https://cloud.githubusercontent.com/assets/18667858/16275622/184d1b90-38ab-11e6-88ed-6a35a860febd.JPG)
+![alt tag](https://cloud.githubusercontent.com/assets/18667858/17494984/6db2da6c-5db7-11e6-929d-5e37cae038cb.JPG)
 
-![alt tag](https://cloud.githubusercontent.com/assets/18667858/16275660/3ec1c672-38ab-11e6-939e-401b00249a1e.JPG)
+![alt tag](https://cloud.githubusercontent.com/assets/18667858/17495337/05e0f994-5db9-11e6-92c0-ccbcadc19b39.JPG)
+
+![alt tag](https://cloud.githubusercontent.com/assets/18667858/17495219/85d2defc-5db8-11e6-826f-5d35f28e533e.JPG)
+
+![alt tag](https://cloud.githubusercontent.com/assets/18667858/17495246/a946d104-5db8-11e6-9fe2-7bae8c5966d3.JPG)
+
+![alt tag](https://cloud.githubusercontent.com/assets/18667858/17495270/ca519820-5db8-11e6-9c69-6378f580d438.JPG)
+
+
+
