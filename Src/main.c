@@ -63,6 +63,8 @@
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 
+#define BOOTLOADER_ADDRESS 0x08000000
+
 typedef void (*pFunction)(void);
 
 uint8_t counter = 0;
@@ -88,7 +90,6 @@ float cp_pid_vars[9];
 uint8_t i;
 uint8_t indexer = 0;
 uint32_t systick_val1, systick_val2;
-uint32_t BOOTLOADER_ADDRESS = 0x08000000;
 uint32_t JumpAddress;
 pFunction JumpToBootloader;
 /* USER CODE END PV */
@@ -228,7 +229,7 @@ int main(void)
     {
         // pid_vars from upper flash page to ram
         read_flash_fvars(pid_vars, 9, 0);
-        read_flash_fvars(l_pid_vars, 9, 9);
+        read_flash_fvars(l_pid_vars, 9, 9 * 4);
 
         for (i = 0; i < 9; i++)
         {
