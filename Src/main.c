@@ -55,6 +55,7 @@
 #include "controller.h"
 #include "flash.h"
 #include "config.h"
+#include "usbd_cdc_if.h"
 
 /* USER CODE END Includes */
 
@@ -68,9 +69,10 @@
 typedef void (*pFunction)(void);
 
 uint8_t counter = 0;
-uint32_t failsafe_counter = 0;
+uint32_t failsafe_counter = 100;
 char* pDirectoryFiles[MAX_BMP_FILES];
 uint8_t res;
+uint16_t usb_res;
 FRESULT fres;
 DIR directory;
 FATFS SD_FatFs; /* File system object for SD card logical drive */
@@ -78,20 +80,25 @@ float volt1 = 0.0f;
 uint32_t free_ram;
 char buf[50] =
 { 0 };
+char buf2[70] =
+{ 0 };
 const uint8_t flash_top = 255;
 uint32_t free_flash;
 uint32_t tick, prev_tick, dt;
-float roll, pitch, yaw;
+float e_roll, e_nick, e_gier;
+//float euler_angle[3];
 int xp, yp;
 float vx = 0.0f, vy = 0.0f;
 HAL_StatusTypeDef hal_res;
 uint32_t idle_counter;
 float cp_pid_vars[9];
-uint8_t i;
+uint8_t i, j;
 uint8_t indexer = 0;
 uint32_t systick_val1, systick_val2;
-uint32_t JumpAddress;
-pFunction JumpToBootloader;
+uint8_t rcv_settings = 0;
+uint8_t snd_settings = 0;
+uint32_t flash_buf[256];
+settings *p_settings;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -134,27 +141,138 @@ int main(void)
 
     /* USER CODE BEGIN 2 */
 
+#ifdef HAVE_SD_CARD
     MX_FATFS_Init();
-
-#ifdef USE_SBUS
-    // alternative SBUS
-    MX_SBUS_USART1_UART_Init();
-    UART_RxCpltCallback = &HAL_UART_RxCpltCallback_SBUS;
-    UART_ErrorCallback = &HAL_UART_ErrorCallback_SBUS;
-    // Request first 25 bytes s-bus frame from uart, uart_data becomes filled per interrupts
-    // Get callback if ready. Callback function starts next request
-    HAL_UART_Receive_IT(&huart1, (uint8_t*) uart_data, 25);
 #endif
 
-#ifdef USE_SRXL
-    // alternative SRXL16 (Multiplex) aka UDI16 (Jeti)
-    MX_USART1_UART_Init();
-    UART_RxCpltCallback = &HAL_UART_RxCpltCallback_SRXL;
-    UART_ErrorCallback = &HAL_UART_ErrorCallback_SRXL;
-    // Request first 35 bytes srxl frame from uart, uart_data becomes filled per interrupts
-    // Get callback if ready. Callback function starts next request
-    HAL_UART_Receive_IT(&huart1, (uint8_t*) uart_data, 35);
-#endif
+    // Reset USB on maple mine clone to let the PC host enumerate the device
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET);
+    HAL_Delay(100);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET);
+
+    p_settings = (settings *) flash_buf;
+    read_flash_vars((uint32_t *) flash_buf, 256, 0);
+
+    // if flash page is not valid
+    // regenerate from default values
+    if (p_settings->magic != 0xdb)
+    {
+        memset(flash_buf, 0xff, 1024);
+
+        *p_settings = default_settings;
+
+        if (erase_flash_page() != HAL_OK)
+        {
+            Error_Handler();
+        }
+        else
+        {
+            // write back flash buffer
+            write_flash_vars((uint32_t*) flash_buf, 256, 0);
+        }
+    }
+
+    // copy simple variables from settings page to ram;
+    // tradeoff ram usage against speed, decision for speed
+    for (i = 0; i < 9; i++)
+    {
+        pid_vars[i] = p_settings->pidvars[i];
+        l_pid_vars[i] = p_settings->l_pidvars[i];
+    }
+
+    for (i = 0; i < 3; i++)
+    {
+        // translate rate deg/s to appropriate factor
+        rate[i] = 2000.0f / p_settings->rate[i];
+    }
+
+    if ( p_settings->aspect_ratio > 1)
+    {
+        scale_nick = 1.0f / p_settings->aspect_ratio;
+        scale_roll = 1.0f;
+    }
+    else if (p_settings->aspect_ratio < 1)
+    {
+        scale_roll = 1.0f / p_settings->aspect_ratio;
+        scale_nick = 1.0f;
+    }
+    else
+    {
+        scale_nick = 1.0f;
+        scale_roll = 1.0f;
+    }
+
+    for(j=0; j<3; ++j )
+    {
+        for(i=0; i<3; ++i)
+        {
+            if ( p_settings->sensor_orient[i][j] != 0 )
+            {
+                if ( j == 0 ) // X vector of Sensor
+                {
+                    roll = i; // direction the vector points to or opposite direction if sign is negative
+                    roll_sign = p_settings->sensor_orient[i][j];
+                }
+                else if ( j == 1) // Y vector of sensor
+                {
+                    nick = i; // direction the vector points to or opposite direction if sign is negative
+                    nick_sign = p_settings->sensor_orient[i][j];
+                }
+                else if ( j == 2) // Z Vector of sensor
+                {
+                    gier = i; // direction the vector points to or opposite direction if sign is negative
+                    gier_sign = p_settings->sensor_orient[i][j];
+                }
+
+                break;
+            }
+        }
+    }
+
+    tim_ch_1 = p_settings->motor_1.tim_ch;
+    tim_ch_2 = p_settings->motor_2.tim_ch;
+    tim_ch_3 = p_settings->motor_3.tim_ch;
+    tim_ch_4 = p_settings->motor_4.tim_ch;
+
+    rot_dir[M1] = p_settings->motor_1.rotational_direction;
+    rot_dir[M2] = p_settings->motor_2.rotational_direction;
+    rot_dir[M3] = p_settings->motor_3.rotational_direction;
+    rot_dir[M4] = p_settings->motor_4.rotational_direction;
+
+    // assign to pseudo channels[16] (value fixed to 2000) if index is 0
+    rc_thrust = p_settings->rc_thrust > 0 ? p_settings->rc_thrust - 1 : 16;
+    rc_roll   = p_settings->rc_roll   > 0 ? p_settings->rc_roll   - 1 : 16;
+    rc_nick   = p_settings->rc_nick   > 0 ? p_settings->rc_nick   - 1 : 16;
+    rc_gier   = p_settings->rc_gier   > 0 ? p_settings->rc_gier   - 1 : 16;
+    rc_arm    = p_settings->rc_arm    > 0 ? p_settings->rc_arm    - 1 : 16;
+    rc_mode   = p_settings->rc_mode   > 0 ? p_settings->rc_mode   - 1 : 16;
+    rc_beep   = p_settings->rc_beep   > 0 ? p_settings->rc_beep   - 1 : 16;
+    rc_prog   = p_settings->rc_prog   > 0 ? p_settings->rc_prog   - 1 : 16;
+    rc_var    = p_settings->rc_var    > 0 ? p_settings->rc_var    - 1 : 16;
+    rc_write  = p_settings->rc_write  > 0 ? p_settings->rc_write  - 1 : 16;
+    rc_aux1   = p_settings->rc_aux1   > 0 ? p_settings->rc_aux1   - 1 : 16;
+    rc_aux2   = p_settings->rc_aux2   > 0 ? p_settings->rc_aux2   - 1 : 16;
+
+    if (p_settings->receiver == SBUS)
+    {
+        // alternative SBUS
+        MX_SBUS_USART1_UART_Init();
+        UART_RxCpltCallback = &HAL_UART_RxCpltCallback_SBUS;
+        UART_ErrorCallback = &HAL_UART_ErrorCallback_SBUS;
+        // Request first 25 bytes s-bus frame from uart, uart_data becomes filled per interrupts
+        // Get callback if ready. Callback function starts next request
+        HAL_UART_Receive_IT(&huart1, (uint8_t*) uart_data, 25);
+    }
+    else if (p_settings->receiver == SRXL)
+    {
+        // alternative SRXL16 (Multiplex) aka UDI16 (Jeti)
+        MX_USART1_UART_Init();
+        UART_RxCpltCallback = &HAL_UART_RxCpltCallback_SRXL;
+        UART_ErrorCallback = &HAL_UART_ErrorCallback_SRXL;
+        // Request first 35 bytes srxl frame from uart, uart_data becomes filled per interrupts
+        // Get callback if ready. Callback function starts next request
+        HAL_UART_Receive_IT(&huart1, (uint8_t*) uart_data, 35);
+    }
 
     // no sample rate divider (0+1), accel: lowpass filter bandwidth 460 Hz, Rate 1kHz, gyro: lowpass filter bandwidth 250 Hz
     // gyro lpf, 3. parameter:
@@ -163,7 +281,7 @@ int main(void)
     // 2   92 Hz
     // 3   41 Hz
     BSP_MPU_Init(0, 2, 0);
-    HAL_Delay(2000);
+    HAL_Delay(2000); // wait for silence after batterie plug in
     BSP_MPU_GyroCalibration();
 
 #ifdef HAVE_DISPLAY
@@ -215,67 +333,6 @@ int main(void)
     // Period elapsed callback sets flag PeriodElapsed
     __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_UPDATE);
 
-    // enable USB on maple mine clone or use reset as default state
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET);
-    HAL_Delay(100);
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET);
-
-    //############ end init SD-card, signal errors by LED ##################
-
-#ifdef HAVE_DISPLAY
-    // if program switch is on ( channels[7] low value ) and WriteUse switch
-    // ( channels[9] ) is in the upper position copy pid_vars from upper flash page to ram
-    if (channels[9] > 2400 && channels[7] < 1600)
-    {
-        // pid_vars from upper flash page to ram
-        read_flash_fvars(pid_vars, 9, 0);
-        read_flash_fvars(l_pid_vars, 9, 9 * 4);
-
-        for (i = 0; i < 9; i++)
-        {
-            if (isnan(pid_vars[i]) || isnan(l_pid_vars[i]))
-            {
-                // pid_vars not programmed in flash page, do it now using default vars
-                if (erase_flash_page() != HAL_OK)
-                {
-                    Error_Handler();
-                }
-                else
-                {
-                    if (write_flash_fvars((float*) const_pid_vars, 9, 0) != HAL_OK)
-                    {
-                        Error_Handler();
-                    }
-                    if (write_flash_fvars((float*) const_l_pid_vars, 9, 9 * 4) != HAL_OK)
-                    {
-                        Error_Handler();
-                    }
-                }
-                // pid_vars from constant flash values to ram instead
-                for (i = 0; i < 9; i++)
-                {
-                    pid_vars[i] = const_pid_vars[i];
-                    l_pid_vars[i] = const_l_pid_vars[i];
-                }
-
-                break;
-            }
-        }
-    }
-    else
-    {
-        // pid_vars from constant flash values to ram
-        for (i = 0; i < 9; i++)
-        {
-#endif
-            pid_vars[i] = const_pid_vars[i];
-            l_pid_vars[i] = const_l_pid_vars[i];
-
-#ifdef HAVE_DISPLAY
-        }
-    }
-#endif
-
     /* USER CODE END 2 */
 
     /* Infinite loop */
@@ -285,12 +342,17 @@ int main(void)
         /* USER CODE END WHILE */
 
         /* USER CODE BEGIN 3 */
-        //systick_val1 = SysTick->VAL;
+        //systick_val1 = SysTick->VAL; // SysTick->VAL reference probe
         if (PeriodElapsed == 1) // 200 Hz from servo timer
         {
+
+            //systick_val2 = SysTick->VAL;  // max 8 us
+
             PeriodElapsed = 0;
             counter++;
             failsafe_counter++;
+
+            //systick_val2 = SysTick->VAL; // max 9 us
 
             if (RC_RECEIVED == 1)
             {
@@ -298,99 +360,263 @@ int main(void)
                 failsafe_counter = 0;
             }
 
+            //systick_val2 = SysTick->VAL; // max 9 us
+
             BSP_MPU_read_rot();
             BSP_MPU_read_acc();
 
-            BSP_MPU_updateIMU(ac[x], ac[y], ac[z], gy[x], gy[y], gy[z], 5.0f);
-            BSP_MPU_getEuler(&roll, &pitch, &yaw);
+            //systick_val2 = SysTick->VAL; // max 122 us
 
-            if (channels[4] < 2400 || failsafe_counter > 40) // motor stop
-            {
-                halt_reset();
-            }
-            else // armed, flight mode
-            {
+            // use int values roll, nick, gier as index to map different orientations
+            BSP_MPU_updateIMU(ac[roll] * roll_sign, ac[nick] * nick_sign, ac[gier] * gier_sign,
+                              gy[roll] * roll_sign, gy[nick] * nick_sign, gy[gier] * gier_sign, 5.0f); // dt 5ms
 
-                if (channels[5] < 1200)
+            // then it comes out here properly mapped because Quaternions already changed axises
+            BSP_MPU_getEuler(&e_roll, &e_nick, &e_gier);
+
+            //systick_val2 = SysTick->VAL;  // max 325 us
+
+            if (channels[rc_arm] > 1600 && failsafe_counter < 40) // armed, flight mode
+            {
+                if (channels[rc_mode] < 1200)
                 {
                     // attitude hold mode
-                    // full stick equals 250 degrees per second
-                    diffroll = gy[x] * 8.0f - (float) channels[1] + MIDDLE_POS; // native middle positions
-                    diffnick = gy[y] * 8.0f - (float) channels[2] + MIDDLE_POS;
+                    // full stick equals ~250 degrees per second with rate of 8 (2000 / 250)
+                    // gy range goes from 0 - 1000 [DPS]
+                    diffroll = gy[roll] * roll_sign * rate[roll] - (float) channels[rc_roll] + MIDDLE_POS; // native middle positions
+                    diffnick = gy[nick] * nick_sign * rate[nick] - (float) channels[rc_nick] + MIDDLE_POS;
 
-                    roll_set = pid(x, diffroll, pid_vars[RKp], pid_vars[RKi], pid_vars[RKd], 5.0f);
-                    nick_set = pid(y, diffnick, pid_vars[NKp], pid_vars[NKi], pid_vars[NKd], 5.0f);
+                    // systick_val2 = SysTick->VAL; // max 334 us
 
+                    roll_set = pid(x, scale_roll, diffroll, pid_vars[RKp], pid_vars[RKi], pid_vars[RKd], 5.0f);
+                    nick_set = pid(y, scale_nick, diffnick, pid_vars[NKp], pid_vars[NKi], pid_vars[NKd], 5.0f);
+
+                    //systick_val2 = SysTick->VAL; // max 396 us
                 }
                 else
                 {
                     // level hold mode
                     // full stick 45 degrees
-                    diffroll = roll * 2000.0f / (M_PI / 4.0f) - (float) channels[1] + MIDDLE_POS;
-                    diffnick = pitch * 2000.0f / (M_PI / 4.0f) - (float) channels[2] + MIDDLE_POS;
+                    diffroll = e_roll * 2000.0f / (M_PI / 4.0f) - (float) channels[rc_roll] + MIDDLE_POS;
+                    diffnick = e_nick * 2000.0f / (M_PI / 4.0f) - (float) channels[rc_nick] + MIDDLE_POS;
 
-                    roll_set = pid(x, diffroll, l_pid_vars[RKp], l_pid_vars[RKi], l_pid_vars[RKd], 5.0f);
-                    nick_set = pid(y, diffnick, l_pid_vars[NKp], l_pid_vars[NKi], l_pid_vars[NKd], 5.0f);
+                    roll_set = pid(x, scale_roll, diffroll, l_pid_vars[RKp], l_pid_vars[RKi], l_pid_vars[RKd], 5.0f);
+                    nick_set = pid(y, scale_nick, diffnick, l_pid_vars[NKp], l_pid_vars[NKi], l_pid_vars[NKd], 5.0f);
+                }
+
+                // full stick equals ~250 degrees per second with rate of 8 (2000 / 250)
+                // gy range goes from 0 - 1000 [DPS]
+                diffgier = gy[gier] * gier_sign * rate[gier] + (float) channels[rc_gier] - MIDDLE_POS; // control reversed, gy right direction
+                gier_set = pid(z, 1.0f, diffgier, pid_vars[GKp], pid_vars[GKi], pid_vars[GKd], 5.0f);
+
+                // systick_val2 = SysTick->VAL; // max 434 us
+
+                // scale thrust channel to have space for governor if max thrust is set
+                thrust_set = rintf((float) channels[rc_thrust] * 0.85f) + LOW_OFFS; // native middle position and 134 % are set
+                //thrust_set = (int16_t) channels[rc_thrust] + LOW_OFFS; // native middle position and 134 % are set
+
+                //systick_val2 = SysTick->VAL; // max 442 us
+
+                control(thrust_set, roll_set, nick_set, gier_set);
+                // assured finished before first servo update by HAL_TIM_PWM_PulseFinishedCallback (1500 us)
+                // 482 us max since PeriodElapsed flag detected was ever measured
+
+                //systick_val2 = SysTick->VAL; // max 451 us
+
+            }
+            else // not armed or fail save, motor stop
+            {
+                halt_reset();
+
+                // prevent overflow after many hours
+                failsafe_counter = 100;
+
+                // message over VCP arrived. From config tool?
+                if (cdc_received == 1)
+                {
+                    // receiving 1k data for settings flash page
+                    if (rcv_settings == 1)
+                    {
+                        if (cdc_received_tot < 1024)
+                        {
+                            cdc_received = 0;
+                            // rearm receiving
+                            USBD_CDC_ReceivePacket(&hUsbDeviceFS);
+                        }
+                        else // 1k received
+                        {
+                            sprintf(buf, "%d", cdc_received_tot);
+                            BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+                            BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
+                            BSP_LCD_FillRect(0, 1 * 12, BSP_LCD_GetXSize(), 12);
+                            BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+                            BSP_LCD_DisplayStringAtLine(1, (uint8_t *) buf);
+
+                            cdc_received = 0;
+                            // reset index
+                            cdc_received_tot = 0;
+                            USBD_CDC_ReceivePacket(&hUsbDeviceFS);
+                            rcv_settings = 0;
+
+                            if (erase_flash_page() != HAL_OK)
+                            {
+                                Error_Handler();
+                            }
+                            else
+                            {
+                                if (write_flash_vars((uint32_t*) received_data, 256, 0) != HAL_OK)
+                                {
+                                    Error_Handler();
+                                }
+                            }
+                        }
+                    }                                                 // request bootloader received
+                    else if (strcmp((const char *) received_data, (const char *) "bootloader") == 0)
+                    {
+                        //setting flag in flash
+                        //so reborn as bootloader we can know that we should not start this live immediately again
+                        // write string "DFU" (4 bytes incl. trailing \0) to last 32 bit wide space of flash page
+                        write_flash_vars((uint32_t*) "DFU", 1, 1020);
+
+                        // is this really needed? I think it is not
+                        HAL_NVIC_DisableIRQ(USB_LP_CAN1_RX0_IRQn);
+                        HAL_NVIC_DisableIRQ(USART1_IRQn);
+                        HAL_NVIC_DisableIRQ(TIM2_IRQn);
+
+                        // set stackpointer pointing to bootloader startup and reset system
+                        __set_MSP(*(__IO uint32_t*) BOOTLOADER_ADDRESS);
+                        HAL_NVIC_SystemReset();
+                    }
+                    else if (strcmp((const char *) received_data, (const char *) "reboot") == 0)
+                    {
+                        HAL_NVIC_SystemReset();
+                    }                                        // request for receiving settings received
+                    else if (strcmp((const char *) received_data, (const char *) "push_settings") == 0)
+                    {
+                        cdc_received_tot = 0;
+                        cdc_received = 0;
+                        rcv_settings = 1;
+                        USBD_CDC_ReceivePacket(&hUsbDeviceFS);
+
+                        sprintf(buf, "<%s>", "XXXX");
+                        BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+                        BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
+                        BSP_LCD_FillRect(0, 1 * 12, BSP_LCD_GetXSize(), 12);
+                        BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+                        BSP_LCD_DisplayStringAtLine(1, (uint8_t *) buf);
+
+                    }                                        // request for sending settings received
+                    else if (strcmp((const char *) received_data, (const char *) "pull_settings") == 0)
+                    {
+                        cdc_received_tot = 0;
+                        cdc_received = 0;
+                        snd_settings = 1;
+                        USBD_CDC_ReceivePacket(&hUsbDeviceFS);
+                        read_flash_vars((uint32_t *) flash_buf, 256, 0);
+
+                        sprintf(buf, "<%s>", "XXXX");
+                        BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+                        BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
+                        BSP_LCD_FillRect(0, 0 * 12, BSP_LCD_GetXSize(), 12);
+                        BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+                        BSP_LCD_DisplayStringAtLine(0, (uint8_t *) buf);
+
+                        //HAL_Delay(50);
+
+                    }
+                    else // recover from broken input
+                    {
+                        cdc_received_tot = 0;
+                        cdc_received = 0;
+                        USBD_CDC_ReceivePacket(&hUsbDeviceFS);
+                    }
+                }
+
+                // sending 1k data of settings flash page
+                if (snd_settings == 1)
+                {
+                    HAL_Delay(300); // wait for live data on wire gets swallowed before send
+                    usb_res = CDC_Transmit_FS((uint8_t*) flash_buf, 1024);
+
+                    sprintf(buf, "%d", usb_res);
+                    BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+                    BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
+                    BSP_LCD_FillRect(0, 0 * 12, BSP_LCD_GetXSize(), 12);
+                    BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+                    BSP_LCD_DisplayStringAtLine(0, (uint8_t *) buf);
+
+                    if (usb_res != USBD_BUSY)
+                    {
+                        snd_settings = 0;
+                    }
+                }
+                else // sending channels
+                {
+                      sprintf(buf2, "%d %d %d %d %d %d %d %d %d %d %d %d\n",
+                      channels[rc_thrust], channels[rc_roll], channels[rc_nick], channels[rc_gier],
+                      channels[rc_arm], channels[rc_mode], channels[rc_beep], channels[rc_prog],
+                      channels[rc_var],channels[rc_write], channels[rc_aux1], channels[rc_aux2]);
+
+                      CDC_Transmit_FS((uint8_t*) buf2, strlen(buf2));
+
+                      // for processing, use dt instead 5.0f ms
+                      //sprintf(buf2, "%3.3f,%3.3f,%3.3f\n", e_gier,
+                      //                                     e_nick,
+                      //                                     e_roll);
 
                 }
 
-                diffgier = gy[z] * 8.0f + (float) channels[3] - MIDDLE_POS; // control reversed, gy right direction
-                gier_set = pid(z, diffgier, pid_vars[GKp], pid_vars[GKi], pid_vars[GKd], 5.0f);
-
-                // scale thrust channel to have space for governor if max thrust is set
-                thrust_set = rintf((float) channels[0] * 0.85f) + LOW_OFFS; // native middle position and 134 % are set
-                //thrust_set = (int16_t) channels[0] + LOW_OFFS; // native middle position and 134 % are set
-
-                control(thrust_set, roll_set, nick_set, gier_set);
-                // assured finished before first servo update by HAL_TIM_PWM_PulseFinishedCallback
-                // 482 us max since PeriodElapsed flag detected
-
-                //systick_val2 = SysTick->VAL;
-                //sprintf(buf, "elapsed: %ld usec\n", (systick_val1 - systick_val2) / 72 );
-
+                free_ram = (0x20000000 + 1024 * 20) - (uint32_t) sbrk((int) 0);
+                sprintf(buf, "free: %ld", free_ram);
+                //sprintf(buf, "ch6: %ld", channels[6]);
+                BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+                BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
+                BSP_LCD_FillRect(0, 12 * 12, BSP_LCD_GetXSize(), 12);
+                BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+                BSP_LCD_DisplayStringAtLine(12, (uint8_t *) buf);
 
             }
 
             //tick = HAL_GetTick();
             //dt = tick - prev_tick;
             //prev_tick = tick;
-
             //free_ram = (0x20000000 + 1024 * 20) - (uint32_t) sbrk((int)0);
-            //sprintf(buf, "free: %ld\n", free_ram);
+            //sprintf(buf, "free: %ld", free_ram);
             //free_flash = (0x8000000 + 1024 * 128) - (uint32_t) &flash_top;
             //sprintf(buf, "free: %ld bytes\n", free_flash);
 
-            //sprintf(buf, "%d %d %d %d %d %d\n", channels[0], channels[1], channels[2], channels[3] , channels[4], channels[5]);
+            //sprintf(buf, "%d %d %d %d %d %d\n", channels[rc_thrust], channels[rc_roll], channels[rc_nick], channels[rc_gier] , channels[rc_arm], channels[rc_mode]);
             //sprintf(buf, "dt: %ld\n", dt);
-            //sprintf(buf, "%3.3f,%3.3f,%3.3f\n", yaw, pitch, roll);
+            //sprintf(buf2, "%3.3f,%3.3f,%3.3f\n", yaw, pitch, roll);
             //sprintf(buf, "%3.3f,%3.3f,%3.3f,%3.3f,%3.3f,%3.3f\n", ac[x], ac[y], ac[z], gy[x], gy[y], gy[z]);
             //sprintf(buf, "%d %d %d %d\n", servos[0], servos[1], servos[2], servos[3]);
             //sprintf(buf, "%3.3f %3.3f %3.3f %ld %ld\n", gy[x], gy[y], gy[z], dt, idle_counter);
             //sprintf(buf, "HAL_UART_ERROR: %d\n", HAL_UART_ERROR);
-            //sprintf(buf, "thrust_set: %d channels[0]: %d LOW_OFFS: %d\n", thrust_set, channels[0], LOW_OFFS);
+            //sprintf(buf, "thrust_set: %d channels[rc_thrust]: %d LOW_OFFS: %d\n", thrust_set, channels[rc_thrust], LOW_OFFS);
+            //sprintf(buf, "%ld\r\n", idle_counter);
 
             // do it in time pieces
             if (counter >= 4)
             {
                 counter = 0;
 #ifdef HAVE_DISPLAY
-                if (channels[4] < 2400) // motor stop screen
+                if (channels[rc_arm] < 2400) // motor stop screen
                 {
                     // transition to motor stop clear screen
-                    if (back_channels[4] - channels[4] > 1000)
+                    if (back_channels[rc_arm] - channels[rc_arm] > 1000)
                     {
                         BSP_LCD_SetRotation(0);
                         BSP_LCD_Clear(LCD_COLOR_BLACK);
-                        back_channels[4] = channels[4];
+                        back_channels[rc_arm] = channels[rc_arm];
 
                     }
 
-                    // transition of beeper momentary switch (channels[6]) detect
-                    if (channels[6] - back_channels[6] > 500)
+                    // transition of beeper momentary switch (channels[rc_beep]) detect
+                    if (channels[rc_beep] - back_channels[rc_beep] > 500)
                     {
-                        // if program switch (channels[7]) is off
+                        // if program switch (channels[rc_prog]) is off
                         // increment indexer
-                        if (channels[7] > 2400)
+                        if (channels[rc_prog] > 2400)
                         {
                             if (indexer < 8)
                             {
@@ -402,22 +628,28 @@ int main(void)
                             }
 
                         }
-                        // else if program switch (channels[7]) is on
-                        // and WriteUse switch channels[9] is in upper position
+                        // else if program switch (channels[rc_prog]) is on
+                        // and Write switch channels[rc_write] is in upper position
                         // copy pid_vars from ram to upper flash page
-                        else if (channels[7] < 800 && channels[9] > 2400)
+                        else if (channels[rc_prog] < 800 && channels[rc_write] > 2400)
                         {
+                            p_settings = (settings *) flash_buf;
+                            read_flash_vars((uint32_t *) flash_buf, 256, 0);
+
+                            for (i = 0; i < 9; i++)
+                            {
+                                // write ram vars to flash buffer
+                                p_settings->pidvars[i] = pid_vars[i];
+                                p_settings->l_pidvars[i] = l_pid_vars[i];
+                            }
+
                             if (erase_flash_page() != HAL_OK)
                             {
                                 Error_Handler();
                             }
                             else
                             {
-                                if (write_flash_fvars(pid_vars, 9, 0) != HAL_OK)
-                                {
-                                    Error_Handler();
-                                }
-                                if (write_flash_fvars(l_pid_vars, 9, 9 * 4) != HAL_OK)
+                                if (write_flash_vars((uint32_t*) flash_buf, 256, 0) != HAL_OK)
                                 {
                                     Error_Handler();
                                 }
@@ -425,9 +657,9 @@ int main(void)
                         }
                     }
 
-                    back_channels[6] = channels[6];
+                    back_channels[rc_beep] = channels[rc_beep];
 
-                    if (channels[5] < 1200)
+                    if (channels[rc_mode] < 1200)
                     {
                         // show and program by RC the current PID values
                         draw_program_pid_values(2, pid_vars[RKp], "Roll Kp: %3.5f", indexer, 2);
@@ -457,11 +689,11 @@ int main(void)
                 else // armed, flight mode screen
                 {
                     // transition to armed, flight mode, clear screen
-                    if (channels[4] - back_channels[4] > 1000)
+                    if (channels[rc_arm] - back_channels[rc_arm] > 1000)
                     {
                         BSP_LCD_SetRotation(3);
                         BSP_LCD_Clear(LCD_COLOR_BLACK);
-                        back_channels[4] = channels[4];
+                        back_channels[rc_arm] = channels[rc_arm];
                     }
 
                     //########### water bubble ################################
@@ -473,8 +705,8 @@ int main(void)
                     BSP_LCD_DrawHLine(75, 64, 11);
                     BSP_LCD_DrawVLine(80, 59, 11);
 
-                    vx = sinf(pitch) * 300.0f;
-                    vy = sinf(roll) * 300.0f;
+                    vx = sinf(e_nick) * 300.0f;
+                    vy = sinf(e_roll) * 300.0f;
 
                     xp = rintf(vx) + 80;
                     yp = rintf(vy) + 64;
@@ -520,12 +752,12 @@ int main(void)
                     HAL_ADC_Stop(&hadc1);
                 }
 
-                // beeper not enabled in program mode (program switch channels[7] low value)
+                // beeper not enabled in program mode (program switch channels[rc_prog] low value)
                 // let default value of 2000 included for beeping
-                if ((volt1 < 10.5f || channels[6] > 2000))
+                if ((volt1 < 10.5f || channels[rc_beep] > 2000))
                 {
 #ifdef HAVE_DISPLAY
-                    if (channels[7] > 1800)
+                    if (channels[rc_prog] > 1800)
                     {
 #endif
                         HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
@@ -547,6 +779,7 @@ int main(void)
 
             if (counter == 1)
             {
+
                 /*
                  read_flash_vars((uint32_t *)buf, 2, 1020);
                  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
@@ -561,31 +794,19 @@ int main(void)
                  */
             }
 
-            if (strcmp((const char *) &received_data[0][0], (const char *) "bootloader") == 0)
-            {
-                //setting flag in flash
-                //so reborn as bootloader we can know that we should not start this live immediately again
-                // write string "DFU" (4 bytes incl. trailing \0) to last 32 bit wide space of flash page
-                write_flash_vars((uint32_t*) "DFU", 1, 1020);
+            //sprintf(buf2, "elapsed: %ld usec\n", (systick_val1 - systick_val2) / 72 );
+            //sprintf(buf2, "%ld\n", idle_counter);
+            //sprintf(buf2, "roll_set: %d nick_set: %d gier_set: %d\n", roll_set, nick_set, gier_set);
 
-                // is this really needed? I think it is not
-                HAL_NVIC_DisableIRQ(USB_LP_CAN1_RX0_IRQn);
-                HAL_NVIC_DisableIRQ(USART1_IRQn);
-                HAL_NVIC_DisableIRQ(TIM2_IRQn);
+            //CDC_Transmit_FS((uint8_t*) buf2, strlen(buf2));
 
-                // set stackpointer pointing to bootloader startup and reset system
-                __set_MSP(*(__IO uint32_t*) BOOTLOADER_ADDRESS);
-                HAL_NVIC_SystemReset();
-
-            }
-
-            //CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
             idle_counter = 0;
 
         }
         else
         {
-            idle_counter++; //in flight mode minimum value before reset is > 450 with sbus running
+            idle_counter++;
+            // min 723 now with running SRXL receiving
         }
 
     } //while(1)
@@ -658,69 +879,69 @@ void draw_program_pid_values(uint8_t line, float value, char* format, uint8_t in
      2 (channels[1]) f1 (Roll)
      3 (channels[2]) f2 (Nick) // I prefer the german word since I fly helicopters back in the eighties
      4 (channels[3]) f3 (Gier) // I prefer the german word ...
-     5 (channels[4]) sd (Arm)
-     6 (channels[5]  sj (Atti/Hori/Baro) # for other copters
-     7 (channels[6]  sa (Beeper)         # momentary switch
-     8 (channels[7]  sc (Program)
-     9 (channels[8]  f8 (Variable)       # knob
-     10 (channels[9] sb (WriteUse)       # three positions
+     5 (channels[4]) sd (Arm)            # two position switch
+     6 (channels[5]  sj (Mode)           # three position switch  Attitude Hold / Level Hold
+     7 (channels[6]  sa (Beeper)         # two position momentary switch
+     8 (channels[7]  sc (Program)        # two position switch
+     9 (channels[8]  f8 (Variable)       # knob proportinal
+     10 (channels[9] sb (Write)          # two position switch
      */
 
-    // if indexer points to current line and we are in program mode ( channels[7] low )
-    // and WriteUse switch is not in upper position, then
-    // the new value adjustable by variable knob (channels[8]) is shown
-    if ((indexer == line - offset) && (channels[7] < 1600) && (channels[9] < 3000))
+    // if indexer points to current line and we are in program mode ( channels[rc_prog] low )
+    // and Write switch is not in upper position, then
+    // the new value adjustable by variable knob (channels[rc_var]) is shown
+    if ((indexer == line - offset) && (channels[rc_prog] < 1600) && (channels[rc_write] < 3000))
     {
         switch (indexer)
         {
         case 0: //RKp
-            value = (float) channels[8] / 4000.0f;
-            //value = (float) channels[8] / 8000.0f;
+            value = (float) channels[rc_var] / 4000.0f;
+            //value = (float) channels[rc_var] / 8000.0f;
             break;
 
         case 1: //RKi
-            value = (float) channels[8] / 4000.0f;
-            //value = (float) channels[8] / 2000.0f;
+            value = (float) channels[rc_var] / 4000.0f;
+            //value = (float) channels[rc_var] / 2000.0f;
             break;
 
         case 2: //RKd
-            value = (float) channels[8] / 50000.0f;
-            //value = (float) channels[8] / 200000.0f;
+            value = (float) channels[rc_var] / 50000.0f;
+            //value = (float) channels[rc_var] / 200000.0f;
             break;
 
         case 3:  //NKp
-            value = (float) channels[8] / 4000.0f;
-            //value = (float) channels[8] / 8000.0f;
+            value = (float) channels[rc_var] / 4000.0f;
+            //value = (float) channels[rc_var] / 8000.0f;
             break;
 
         case 4:  //NKi
-            value = (float) channels[8] / 4000.0f;
-            //value = (float) channels[8] / 2000.0f;
+            value = (float) channels[rc_var] / 4000.0f;
+            //value = (float) channels[rc_var] / 2000.0f;
             break;
 
         case 5:  //NKd
-            value = (float) channels[8] / 50000.0f;
-            //value = (float) channels[8] / 200000.0f;
+            value = (float) channels[rc_var] / 50000.0f;
+            //value = (float) channels[rc_var] / 200000.0f;
             break;
 
         case 6:  //GKp
-            value = (float) channels[8] / 2000.0f;
+            value = (float) channels[rc_var] / 2000.0f;
             break;
 
         case 7:  //GKi
-            value = (float) channels[8] / 2000.0f;
+            value = (float) channels[rc_var] / 2000.0f;
             break;
 
         case 8:  //GKd
-            value = (float) channels[8] / 200000.0f;
+            value = (float) channels[rc_var] / 200000.0f;
             break;
         }
 
         // if beeper switch is switched to lower position the new value will be written immediately
         // and continuously to ram (pid_vars[x]) while adjusting the value with the knob
-        if (channels[6] > 2400)
+        if (channels[rc_beep] > 2400)
         {
-            if (channels[5] < 1200)
+            if (channels[rc_mode] < 1200)
             {
                 pid_vars[indexer] = value;
             }
@@ -739,6 +960,7 @@ void draw_program_pid_values(uint8_t line, float value, char* format, uint8_t in
     BSP_LCD_DisplayStringAtLine(line, (uint8_t *) buf);
 }
 #endif
+
 /* USER CODE END 4 */
 
 /**
@@ -775,7 +997,7 @@ void assert_failed(uint8_t* file, uint32_t line)
     /* User can add his own implementation to report the file name and line number,
      ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
     /* USER CODE END 6 */
-00
+
 }
 
 #endif

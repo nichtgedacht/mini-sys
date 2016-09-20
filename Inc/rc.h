@@ -13,8 +13,8 @@
 
 extern volatile uint8_t uart_data[35];
 extern volatile uint8_t HAL_UART_ERROR;
-extern volatile uint16_t channels[16];
-extern volatile uint16_t back_channels[16];
+extern volatile uint16_t channels[17];
+extern volatile uint16_t back_channels[17];
 extern volatile uint16_t RC_ERROR;
 extern volatile uint8_t RC_RECEIVED;
 

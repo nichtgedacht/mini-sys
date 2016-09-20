@@ -1,5 +1,6 @@
 #include "controller.h"
 #include "mpu9250.h"
+#include "config.h"
 
 float diffroll = 0.0f;
 float diffnick = 0.0f;
@@ -14,19 +15,9 @@ float last_derivative[3];
 float last_error[3];
 float integrator[3];
 
-//##############################  RKp    RKi    RKd    NKp    NKi   NKd     GKp   GKi    GKd
-const float const_pid_vars[9] =
-{ 0.24f, 1.5f, 0.004f, 0.24f, 1.5f, 0.004f, 1.0f, 1.5f, 0.001f };
-
-const float const_l_pid_vars[9] =
-{ 0.1f, 0.03f, 0.02f, 0.1f, 0.03f, 0.02f, 1.0f, 1.5f, 0.001f };
-
-float pid_vars[9];
-float l_pid_vars[9];
-
 const float RC = 0.007958;  // 1/(2*PI*_fCut fcut = 20 from Ardupilot
 
-int16_t pid(uint8_t axis, float error, float Kp, float Ki, float Kd, float dt)
+int16_t pid(uint8_t axis, float scale, float error, float Kp, float Ki, float Kd, float dt)
 {
     float derivative = 0;
     float output_f = 0;
@@ -61,6 +52,9 @@ int16_t pid(uint8_t axis, float error, float Kp, float Ki, float Kd, float dt)
 // DT1
     output_f += Kd * derivative;
 
+    // Scale with value from aspect_ratio (nick only);
+    output_f *= scale;
+
     //output = roundf(output_f);
     //output = lroundf(output_f);
     output = rintf(output_f);
@@ -72,20 +66,29 @@ void control(int16_t thrust_set, int16_t roll_set, int16_t nick_set, int16_t gie
 {
 
     // prevents motor stop, hopefully
-    gier_set = gier_set < -400 ? -400 : ( gier_set > 400 ? 400 : gier_set );
+    gier_set = gier_set < -400 ? -400 : (gier_set > 400 ? 400 : gier_set);
 
-    servos[1] = thrust_set - roll_set + nick_set + gier_set;  // Motor front left  CCW
-    servos[3] = thrust_set + roll_set + nick_set - gier_set;  // Motor front right CW
-    servos[0] = thrust_set - roll_set - nick_set - gier_set;  // Motor rear left   CW
-    servos[2] = thrust_set + roll_set - nick_set + gier_set;  // Motor rear right  CCW
+    /* old original
+    servos[0] = thrust_set - roll_set - nick_set - gier_set;  // Motor rear left   CCW
+    servos[1] = thrust_set - roll_set + nick_set + gier_set;  // Motor front left  CW
+    servos[2] = thrust_set + roll_set - nick_set + gier_set;  // Motor rear right  CW
+    servos[3] = thrust_set + roll_set + nick_set - gier_set;  // Motor front right CCW
+    */
+
+    // change roll, nick, gier to x, y, z. We need 0, 1, 2 as fixed index
+    servos[tim_ch_1] = thrust_set - roll_set - nick_set + gier_set * rot_dir[M1];  // Motor 1 rear left   CCW
+    servos[tim_ch_2] = thrust_set - roll_set + nick_set + gier_set * rot_dir[M2];  // Motor 2 front left  CW
+    servos[tim_ch_3] = thrust_set + roll_set - nick_set + gier_set * rot_dir[M3];  // Motor 3 rear right  CW
+    servos[tim_ch_4] = thrust_set + roll_set + nick_set + gier_set * rot_dir[M1];  // Motor 4 front right CCW
+
 
     // It is essential that these statements are completed within the current period before
     // the values are taken by HAL_TIM_PWM_PulseFinishedCallback (in servo.c).
     // That is < 1ms since PeriodElapsed flag was set.
-    servos[0] = servos[0] < 4000 ? 4000 : (servos[0] > 8000 ? 8000 : servos[0]);
-    servos[1] = servos[1] < 4000 ? 4000 : (servos[1] > 8000 ? 8000 : servos[1]);
-    servos[2] = servos[2] < 4000 ? 4000 : (servos[2] > 8000 ? 8000 : servos[2]);
-    servos[3] = servos[3] < 4000 ? 4000 : (servos[3] > 8000 ? 8000 : servos[3]);
+    servos[tim_ch_1] = servos[tim_ch_1] < 4000 ? 4000 : (servos[tim_ch_1] > 8000 ? 8000 : servos[tim_ch_1]);
+    servos[tim_ch_2] = servos[tim_ch_2] < 4000 ? 4000 : (servos[tim_ch_2] > 8000 ? 8000 : servos[tim_ch_2]);
+    servos[tim_ch_3] = servos[tim_ch_3] < 4000 ? 4000 : (servos[tim_ch_3] > 8000 ? 8000 : servos[tim_ch_3]);
+    servos[tim_ch_4] = servos[tim_ch_4] < 4000 ? 4000 : (servos[tim_ch_4] > 8000 ? 8000 : servos[tim_ch_4]);
 
     /*
      Mapping:

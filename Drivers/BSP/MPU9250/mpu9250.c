@@ -11,7 +11,9 @@ static float invSqrt(float x);
 //#define twoKiDef        (2.0f * 0.5f)   // 2 * integral gain
 
 #define twoKiDef        (2.0f * 0.0f)   // 2 * integral gain
-#define twoKpDef        (2.0f * 0.5f)   // 2 * proportional gain
+//#define twoKpDef        (2.0f * 0.5f)   // 2 * proportional gain
+
+#define twoKpDef        (2.0f * 1.0f)   // 2 * proportional gain
 
 float twoKp = twoKpDef;                                             // 2 * proportional gain (Kp)
 float twoKi = twoKiDef;                                             // 2 * integral gain (Ki)
