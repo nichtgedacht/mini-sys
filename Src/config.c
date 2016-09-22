@@ -76,10 +76,10 @@ const settings default_settings = {
         { 0.24f, 1.5f, 0.004f, 0.24f, 1.5f, 0.004f, 0.5f, 1.5f, 0.001f },  // pid_vars
         { 0.1f, 0.03f, 0.02f, 0.1f, 0.03f, 0.02f, 1.0f, 1.5f, 0.001f },    // l_pid_vars
         {250.0f, 250.0f, 250.0f },  // rate
-        { CCW, 0 },  // motor_1
-        { CW, 1 },   // motor_2
-        { CW, 2 },   // motor_3
-        { CCW, 3 },  // motor_4
+        { CCW, 1 },  // motor_1
+        { CW, 2 },   // motor_2
+        { CW, 3 },   // motor_3
+        { CCW, 4 },  // motor_4
         { // Front   Left   Top           //sensor_orient
         {     1,      0,     0  }, // x
         {     0,      1,     0  }, // y

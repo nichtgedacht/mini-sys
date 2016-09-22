@@ -218,7 +218,7 @@ int main(void)
                     nick = i; // direction the vector points to or opposite direction if sign is negative
                     nick_sign = p_settings->sensor_orient[i][j];
                 }
-                else if ( j == 2) // Z Vector of sensor
+                else if ( j == 2) // Z vector of sensor
                 {
                     gier = i; // direction the vector points to or opposite direction if sign is negative
                     gier_sign = p_settings->sensor_orient[i][j];
@@ -229,10 +229,10 @@ int main(void)
         }
     }
 
-    tim_ch_1 = p_settings->motor_1.tim_ch;
-    tim_ch_2 = p_settings->motor_2.tim_ch;
-    tim_ch_3 = p_settings->motor_3.tim_ch;
-    tim_ch_4 = p_settings->motor_4.tim_ch;
+    tim_ch_1 = p_settings->motor_1.tim_ch - 1;
+    tim_ch_2 = p_settings->motor_2.tim_ch - 1;
+    tim_ch_3 = p_settings->motor_3.tim_ch - 1;
+    tim_ch_4 = p_settings->motor_4.tim_ch - 1;
 
     rot_dir[M1] = p_settings->motor_1.rotational_direction;
     rot_dir[M2] = p_settings->motor_2.rotational_direction;
@@ -418,7 +418,7 @@ int main(void)
                 //systick_val2 = SysTick->VAL; // max 442 us
 
                 control(thrust_set, roll_set, nick_set, gier_set);
-                // assured finished before first servo update by HAL_TIM_PWM_PulseFinishedCallback (1500 us)
+                // assured finished before first servo update by HAL_TIM_PWM_PulseFinishedCallback (1000 us)
                 // 482 us max since PeriodElapsed flag detected was ever measured
 
                 //systick_val2 = SysTick->VAL; // max 451 us
