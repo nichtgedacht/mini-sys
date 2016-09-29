@@ -2,6 +2,7 @@
 #define __config_H
 
 #include "stm32f1xx_hal.h"
+#include "string.h"
 
 #define HAVE_DISPLAY
 #define HAVE_SD_CARD
@@ -13,12 +14,31 @@ enum { SBUS, SRXL }; // receiver index
 enum { RKp, RKi, RKd, NKp, NKi, NKd, GKp, GKi, GKd }; // pid index
 enum { CW = 1, CCW = -1};
 enum { M1, M2, M3, M4 };
+enum { r_thrust = 1,
+       r_roll = 2,
+       r_nick = 3,
+       r_gier = 4,
+       r_arm = 5,
+       r_mode = 6,
+       r_beep = 7,
+       r_prog = 8,
+       r_var = 9,
+       r_aux1 = 10,
+       r_aux2 = 11,
+       r_aux3 = 12
+     };
 
 typedef struct
 {
     int8_t rotational_direction;
     uint8_t tim_ch;
 } motor;
+
+typedef struct
+{
+    uint8_t number;
+    uint8_t rev;
+} rc_channel;
 
 typedef int8_t matrix[3][3];
 
@@ -39,18 +59,10 @@ typedef struct {
     uint8_t pad5;
     uint8_t pad6;
     float aspect_ratio;
-    uint8_t rc_thrust;
-    uint8_t rc_roll;
-    uint8_t rc_nick;
-    uint8_t rc_gier;
-    uint8_t rc_arm;
-    uint8_t rc_mode;
-    uint8_t rc_beep;
-    uint8_t rc_prog;
-    uint8_t rc_var;
-    uint8_t rc_write;
-    uint8_t rc_aux1;
-    uint8_t rc_aux2;
+    rc_channel rc_func[13];
+    uint8_t pad7;
+    rc_channel rc_ch[13];
+    uint8_t pad8;
     uint8_t receiver;
 } settings;
 
@@ -67,8 +79,8 @@ extern motor motor_3;
 extern motor motor_4;
 
 extern float aspect_ratio;
-extern uint8_t roll, nick, gier;
-extern float roll_sign, nick_sign, gier_sign;
+extern uint8_t se_roll, se_nick, se_gier;
+extern float se_roll_sign, se_nick_sign, se_gier_sign;
 
 extern uint8_t tim_ch_1;
 extern uint8_t tim_ch_2;
@@ -84,17 +96,26 @@ extern uint8_t rc_mode;
 extern uint8_t rc_beep;
 extern uint8_t rc_prog;
 extern uint8_t rc_var;
-extern uint8_t rc_write;
 extern uint8_t rc_aux1;
 extern uint8_t rc_aux2;
+extern uint8_t rc_aux3;
+
+extern uint8_t rc_rev[12];
 
 extern int8_t rot_dir[4];
 
 extern float scale_nick;
 extern float scale_roll;
 
+extern settings *p_settings;
+
 // example:
 // cannels[rc_thrust];
 
+extern void Error_Handler(void);
+
+void check_settings(void);
+void analyze_settings(void);
+void load_default_settings(void);
 
 #endif

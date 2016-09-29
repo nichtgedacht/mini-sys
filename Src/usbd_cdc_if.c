@@ -86,10 +86,10 @@
 /* It's up to user to redefine and/or remove those define */
 /* Received Data over USB are stored in this buffer       */
 uint8_t UserRxBufferFS[APP_RX_DATA_SIZE];
-uint8_t UserTxBufferFS[APP_TX_DATA_SIZE];
 
 /* Send Data over USB CDC are stored in this buffer       */
-//uint8_t UserTxBufferFS[APP_TX_DATA_SIZE];
+uint8_t UserTxBufferFS[APP_TX_DATA_SIZE];
+
 /* USER CODE BEGIN PRIVATE_VARIABLES */
 
 USBD_CDC_LineCodingTypeDef LineCoding =
@@ -111,7 +111,6 @@ USBD_CDC_LineCodingTypeDef LineCoding =
  * @{
  */
 extern USBD_HandleTypeDef hUsbDeviceFS;
-
 /* USER CODE BEGIN EXPORTED_VARIABLES */
 
 volatile uint8_t cdc_received = 0;
@@ -152,8 +151,7 @@ USBD_CDC_ItfTypeDef USBD_Interface_fops_FS =
 static int8_t CDC_Init_FS(void)
 {
     /* USER CODE BEGIN 3 */
-  //  hUsbDevice_0 = &hUsbDeviceFS;
-
+    //  hUsbDevice_0 = &hUsbDeviceFS;
     /* Set Application Buffers */
     USBD_CDC_SetTxBuffer(&hUsbDeviceFS, UserTxBufferFS, 0);
     USBD_CDC_SetRxBuffer(&hUsbDeviceFS, UserRxBufferFS);
@@ -226,30 +224,30 @@ static int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
         /*******************************************************************************/
     case CDC_SET_LINE_CODING:
 
-        memcpy( &LineCoding, pbuf, sizeof(LineCoding) );
+        memcpy(&LineCoding, pbuf, sizeof(LineCoding));
 
         /*
-        LineCoding.bitrate    = (uint32_t)(pbuf[0] | (pbuf[1] << 8) | (pbuf[2] << 16) | (pbuf[3] << 24));
-        LineCoding.format     = pbuf[4];
-        LineCoding.paritytype = pbuf[5];
-        LineCoding.datatype   = pbuf[6];
-        */
+         LineCoding.bitrate    = (uint32_t)(pbuf[0] | (pbuf[1] << 8) | (pbuf[2] << 16) | (pbuf[3] << 24));
+         LineCoding.format     = pbuf[4];
+         LineCoding.paritytype = pbuf[5];
+         LineCoding.datatype   = pbuf[6];
+         */
 
         break;
 
     case CDC_GET_LINE_CODING:
 
-        memcpy( pbuf, &LineCoding, sizeof(LineCoding) );
+        memcpy(pbuf, &LineCoding, sizeof(LineCoding));
 
         /*
-        pbuf[0] = (uint8_t) (LineCoding.bitrate);
-        pbuf[1] = (uint8_t) (LineCoding.bitrate >> 8);
-        pbuf[2] = (uint8_t) (LineCoding.bitrate >> 16);
-        pbuf[3] = (uint8_t) (LineCoding.bitrate >> 24);
-        pbuf[4] = LineCoding.format;
-        pbuf[5] = LineCoding.paritytype;
-        pbuf[6] = LineCoding.datatype;
-        */
+         pbuf[0] = (uint8_t) (LineCoding.bitrate);
+         pbuf[1] = (uint8_t) (LineCoding.bitrate >> 8);
+         pbuf[2] = (uint8_t) (LineCoding.bitrate >> 16);
+         pbuf[3] = (uint8_t) (LineCoding.bitrate >> 24);
+         pbuf[4] = LineCoding.format;
+         pbuf[5] = LineCoding.paritytype;
+         pbuf[6] = LineCoding.datatype;
+         */
 
         break;
 
@@ -288,7 +286,7 @@ static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
 {
     /* USER CODE BEGIN 6 */
     // store string in UserRxBufferFS at next received_data index
-    if ( cdc_received_tot + *Len > 1024 )
+    if (cdc_received_tot + *Len > 1024)
     {
         cdc_received_tot = 0;
     }
@@ -318,7 +316,6 @@ static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
 uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len)
 {
     uint8_t result = USBD_OK;
-
     /* USER CODE BEGIN 7 */
     uint16_t bytes_written = 0;
     uint16_t bytes_to_write;
@@ -331,7 +328,7 @@ uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len)
     }
 
     //if ( hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED || hUsbDeviceFS.ep0_state == USBD_EP0_DATA_OUT)
-    if ( hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED )
+    if (hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED)
     {
         // No physical connection
         result = USBD_FAIL;
@@ -344,27 +341,25 @@ uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len)
         {
 
             /* commented out because it works without delay with socat and with qt5 serial
-            // if faster the data don't get drained safely. Why?
-            // delay only if previous chunk was written
-            if ( bytes_written > 0 )
-            {
-                HAL_Delay(20);
-            }
-            */
-
-            //HAL_Delay(20);
+             // if faster the data don't get drained safely. Why?
+             // delay only if previous chunk was written
+             if ( bytes_written > 0 )
+             {
+             HAL_Delay(20);
+             }
+             */
 
             // size of part is APP_TX_DATA_SIZE or remainder
-            bytes_to_write = (Len - bytes_written) > APP_TX_DATA_SIZE ? APP_TX_DATA_SIZE : ( Len - bytes_written );
+            bytes_to_write = (Len - bytes_written) > APP_TX_DATA_SIZE ? APP_TX_DATA_SIZE : (Len - bytes_written);
 
-            memcpy(UserTxBufferFS, &Buf[bytes_written], bytes_to_write );
+            memcpy(UserTxBufferFS, &Buf[bytes_written], bytes_to_write);
 
             USBD_CDC_SetTxBuffer(&hUsbDeviceFS, UserTxBufferFS, bytes_to_write);
 
             // Check if USB disconnected while retrying
             //if ( hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED || hUsbDeviceFS.ep0_state == USBD_EP0_DATA_IN )
             //if ( hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED || hUsbDeviceFS.ep0_state == USBD_EP0_STATUS_IN )
-            if ( hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED )
+            if (hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED)
             {
                 result = USBD_FAIL;
                 break;
@@ -389,7 +384,6 @@ uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len)
     /* USER CODE END 7 */
     return result;
 }
-
 
 /* USER CODE BEGIN PRIVATE_FUNCTIONS_IMPLEMENTATION */
 /* USER CODE END PRIVATE_FUNCTIONS_IMPLEMENTATION */

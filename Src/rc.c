@@ -1,4 +1,5 @@
 #include "rc.h"
+#include "config.h"
 
 volatile uint8_t uart_data[35] =
 { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
@@ -91,6 +92,14 @@ void HAL_UART_RxCpltCallback_SRXL(UART_HandleTypeDef *huart)
         channels[14] = uart_data[29] << 8 | uart_data[30];
         channels[15] = uart_data[31] << 8 | uart_data[32];
 
+        for( i = 0; i < 12; i++ )
+        {
+            if ( rc_rev[i] == 1 )
+            {
+                channels[i] = 4096 - channels[i];
+            }
+        }
+
         RC_RECEIVED = 1;
 
         /*
@@ -148,6 +157,14 @@ void HAL_UART_RxCpltCallback_SBUS(UART_HandleTypeDef *huart)
         channels[13] = (((uart_data[18] >> 7 | uart_data[19] << 1 | uart_data[20] << 9) & 0x07FF) << 1);
         channels[14] = (((uart_data[20] >> 2 | uart_data[21] << 6) & 0x07FF) << 1);
         channels[15] = (((uart_data[21] >> 5 | uart_data[22] << 3) & 0x07FF) << 1);
+
+        for( i = 0; i < 12; i++ )
+        {
+            if ( rc_rev[i] == 1 )
+            {
+                channels[i] = 4096 - channels[i];
+            }
+        }
 
         RC_RECEIVED = 1;
     }

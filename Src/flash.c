@@ -4,6 +4,8 @@ uint32_t PAGEError = 0;
 
 static FLASH_EraseInitTypeDef EraseInitStruct;
 
+uint32_t flash_buf[256];
+
 uint32_t erase_flash_page(void)
 {
     //Erase flash page(s)
