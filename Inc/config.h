@@ -82,10 +82,10 @@ extern float aspect_ratio;
 extern uint8_t se_roll, se_nick, se_gier;
 extern float se_roll_sign, se_nick_sign, se_gier_sign;
 
-extern uint8_t tim_ch_1;
-extern uint8_t tim_ch_2;
-extern uint8_t tim_ch_3;
-extern uint8_t tim_ch_4;
+extern uint8_t motor1_tim_ch;
+extern uint8_t motor2_tim_ch;
+extern uint8_t motor3_tim_ch;
+extern uint8_t motor4_tim_ch;
 
 extern uint8_t rc_thrust;
 extern uint8_t rc_roll;

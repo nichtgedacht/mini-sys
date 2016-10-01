@@ -76,19 +76,19 @@ void control(int16_t thrust_set, int16_t roll_set, int16_t nick_set, int16_t gie
     */
 
     // change roll, nick, gier to x, y, z. We need 0, 1, 2 as fixed index
-    servos[tim_ch_1] = thrust_set - roll_set - nick_set + gier_set * rot_dir[M1];  // Motor 1 rear left   CCW
-    servos[tim_ch_2] = thrust_set - roll_set + nick_set + gier_set * rot_dir[M2];  // Motor 2 front left  CW
-    servos[tim_ch_3] = thrust_set + roll_set - nick_set + gier_set * rot_dir[M3];  // Motor 3 rear right  CW
-    servos[tim_ch_4] = thrust_set + roll_set + nick_set + gier_set * rot_dir[M1];  // Motor 4 front right CCW
+    servos[motor1_tim_ch] = thrust_set - roll_set - nick_set + gier_set * rot_dir[M1];  // Motor 1 rear left   CCW
+    servos[motor2_tim_ch] = thrust_set - roll_set + nick_set + gier_set * rot_dir[M2];  // Motor 2 front left  CW
+    servos[motor3_tim_ch] = thrust_set + roll_set - nick_set + gier_set * rot_dir[M3];  // Motor 3 rear right  CW
+    servos[motor4_tim_ch] = thrust_set + roll_set + nick_set + gier_set * rot_dir[M1];  // Motor 4 front right CCW
 
 
     // It is essential that these statements are completed within the current period before
     // the values are taken by HAL_TIM_PWM_PulseFinishedCallback (in servo.c).
     // That is < 1ms since PeriodElapsed flag was set.
-    servos[tim_ch_1] = servos[tim_ch_1] < 4000 ? 4000 : (servos[tim_ch_1] > 8000 ? 8000 : servos[tim_ch_1]);
-    servos[tim_ch_2] = servos[tim_ch_2] < 4000 ? 4000 : (servos[tim_ch_2] > 8000 ? 8000 : servos[tim_ch_2]);
-    servos[tim_ch_3] = servos[tim_ch_3] < 4000 ? 4000 : (servos[tim_ch_3] > 8000 ? 8000 : servos[tim_ch_3]);
-    servos[tim_ch_4] = servos[tim_ch_4] < 4000 ? 4000 : (servos[tim_ch_4] > 8000 ? 8000 : servos[tim_ch_4]);
+    servos[motor1_tim_ch] = servos[motor1_tim_ch] < 4000 ? 4000 : (servos[motor1_tim_ch] > 8000 ? 8000 : servos[motor1_tim_ch]);
+    servos[motor2_tim_ch] = servos[motor2_tim_ch] < 4000 ? 4000 : (servos[motor2_tim_ch] > 8000 ? 8000 : servos[motor2_tim_ch]);
+    servos[motor3_tim_ch] = servos[motor3_tim_ch] < 4000 ? 4000 : (servos[motor3_tim_ch] > 8000 ? 8000 : servos[motor3_tim_ch]);
+    servos[motor4_tim_ch] = servos[motor4_tim_ch] < 4000 ? 4000 : (servos[motor4_tim_ch] > 8000 ? 8000 : servos[motor4_tim_ch]);
 
     /*
      Mapping:

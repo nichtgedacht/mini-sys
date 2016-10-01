@@ -275,10 +275,10 @@ int main(void)
             //systick_val2 = SysTick->VAL;  // max 325 us
 
             // armed only if arm switch on + not failsafe + not usb connected
-            if (channels[rc_arm] > 1600 && failsafe_counter < 40 && hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED) // armed, flight mode
-            //if (channels[rc_arm] > 1600 && failsafe_counter < 40 ) // test performance while usb connected
+            if (channels[rc_arm] > 2700 && failsafe_counter < 40 && hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED) // armed, flight mode
+            //if (channels[rc_arm] > 2700 && failsafe_counter < 40 ) // test performance while usb connected
             {
-                if (channels[rc_mode] < 1200)
+                if ( channels[rc_mode] < 1400 )
                 {
                     // attitude hold mode
                     // full stick equals ~250 degrees per second with rate of 8 (2000 / 250)
@@ -293,7 +293,7 @@ int main(void)
 
                     //systick_val2 = SysTick->VAL; // max 396 us
                 }
-                else
+                else // mode 2 and mode 3 are the same currently
                 {
                     // level hold mode
                     // full stick 45 degrees
@@ -323,7 +323,7 @@ int main(void)
                 //systick_val2 = SysTick->VAL; // max 488 us if all channels are inverted and receiver repeat rate 5ms
 
             }
-            else // not armed or fail save, motor stop
+            else // not armed or fail save or USB connected, motor stop except if motor test running
             {
                 halt_reset();
 
@@ -538,8 +538,8 @@ int main(void)
                 counter = 0;
 #ifdef HAVE_DISPLAY
                 // stay in motor stop screen in any case if usb connected
-                if (channels[rc_arm] < 2400 || hUsbDeviceFS.dev_state == USBD_STATE_CONFIGURED) // motor stop screen
-                //if (channels[rc_arm] < 2400) // test performance while usb connected
+                if (channels[rc_arm] < 2700 || hUsbDeviceFS.dev_state == USBD_STATE_CONFIGURED) // motor stop screen
+                //if (channels[rc_arm] < 2700) // test performance while usb connected
                 {
                     // transition to motor stop clear screen
                     if (back_channels[rc_arm] - channels[rc_arm] > 1000)
@@ -551,11 +551,11 @@ int main(void)
                     }
 
                     // transition of beeper momentary switch (channels[rc_beep]) detect
-                    if (channels[rc_beep] - back_channels[rc_beep] > 500)
+                    if (channels[rc_beep] - back_channels[rc_beep] > 1000)
                     {
                         // if program switch (channels[rc_prog]) is off
                         // increment indexer
-                        if (channels[rc_prog] < 1200)
+                        if (channels[rc_prog] < 1400)
                         {
                             if (indexer < 8)
                             {
@@ -569,7 +569,7 @@ int main(void)
                         }
                         // else if program switch (channels[rc_prog]) full on
                         // copy pid_vars from ram to upper flash page
-                        else if (channels[rc_prog] > 2800)
+                        else if (channels[rc_prog] > 2700)
                         {
                             p_settings = (settings *) flash_buf;
                             read_flash_vars((uint32_t *) flash_buf, 256, 0);
@@ -597,7 +597,7 @@ int main(void)
 
                     back_channels[rc_beep] = channels[rc_beep];
 
-                    if (channels[rc_mode] < 1200)
+                    if (channels[rc_mode] < 1400)
                     {
                         // show and program by RC the current PID values
                         draw_program_pid_values(2, pid_vars[RKp], "Roll Kp: %3.5f", indexer, 2);
@@ -613,15 +613,15 @@ int main(void)
                     else
                     {
                         // show and program by RC the current level flight PID values
-                        draw_program_pid_values(2, l_pid_vars[RKp], "Roll Kp: %3.5f", indexer, 2);
-                        draw_program_pid_values(3, l_pid_vars[RKi], "Roll Ki: %3.5f", indexer, 2);
-                        draw_program_pid_values(4, l_pid_vars[RKd], "Roll Kd: %3.5f", indexer, 2);
-                        draw_program_pid_values(5, l_pid_vars[NKp], "Nick Kp: %3.5f", indexer, 2);
-                        draw_program_pid_values(6, l_pid_vars[NKi], "Nick Ki: %3.5f", indexer, 2);
-                        draw_program_pid_values(7, l_pid_vars[NKd], "Nick Kd: %3.5f", indexer, 2);
-                        draw_program_pid_values(8, l_pid_vars[GKp], "Gier Kp: %3.5f", indexer, 2);
-                        draw_program_pid_values(9, l_pid_vars[GKi], "Gier Ki: %3.5f", indexer, 2);
-                        draw_program_pid_values(10, l_pid_vars[GKd], "Gier Kd: %3.5f", indexer, 2);
+                        draw_program_pid_values(2, l_pid_vars[RKp], "Roll l_Kp: %3.5f", indexer, 2);
+                        draw_program_pid_values(3, l_pid_vars[RKi], "Roll l_Ki: %3.5f", indexer, 2);
+                        draw_program_pid_values(4, l_pid_vars[RKd], "Roll l_Kd: %3.5f", indexer, 2);
+                        draw_program_pid_values(5, l_pid_vars[NKp], "Nick l_Kp: %3.5f", indexer, 2);
+                        draw_program_pid_values(6, l_pid_vars[NKi], "Nick l_Ki: %3.5f", indexer, 2);
+                        draw_program_pid_values(7, l_pid_vars[NKd], "Nick l_Kd: %3.5f", indexer, 2);
+                        draw_program_pid_values(8, l_pid_vars[GKp], "Gier l_Kp: %3.5f", indexer, 2);
+                        draw_program_pid_values(9, l_pid_vars[GKi], "Gier l_Ki: %3.5f", indexer, 2);
+                        draw_program_pid_values(10, l_pid_vars[GKd], "Gier l_Kd: %3.5f", indexer, 2);
                     }
                 }
                 else // armed, flight mode screen
@@ -691,8 +691,7 @@ int main(void)
                 }
 
                 // beeper not enabled if USB is connected
-                // let default value 2000 of beeper channel included for beeping
-                if ( ( volt1 < 10.5f || channels[rc_beep] > 2000 ) && hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED )
+                if ( ( volt1 < 10.5f || channels[rc_beep] > 1400 ) && hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED )
                 {
                     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
                 }
@@ -801,14 +800,13 @@ void draw_program_pid_values(uint8_t line, float value, char* format, uint8_t in
      5 (channels[4]) sd (Arm)            # two position switch
      6 (channels[5]  sj (Mode)           # three position switch  Attitude Hold / Level Hold
      7 (channels[6]  sa (Beeper)         # two position momentary switch
-     8 (channels[7]  sc (Program)        # two position switch
+     8 (channels[7]  sc (Program)        # three position switch
      9 (channels[8]  f8 (Variable)       # knob proportinal
-     10 (channels[9] sb (Write)          # two position switch
      */
 
     // if indexer points to current line and we are in program mode ( channels[rc_prog] middle )
     // then the new value adjustable by variable knob (channels[rc_var]) is shown
-    if ((indexer == line - offset) && (channels[rc_prog] > 1200) && (channels[rc_prog] < 2800))
+    if ((indexer == line - offset) && (channels[rc_prog] > 1400) && (channels[rc_prog] < 2700))
     {
         switch (indexer)
         {
@@ -857,9 +855,9 @@ void draw_program_pid_values(uint8_t line, float value, char* format, uint8_t in
 
         // if beeper switch is switched to lower position the new value will be written immediately
         // and continuously to ram (pid_vars[x]) while adjusting the value with the knob
-        if (channels[rc_beep] > 2800)
+        if (channels[rc_beep] > 2700)
         {
-            if (channels[rc_mode] < 1200)
+            if (channels[rc_mode] < 1400)
             {
                 pid_vars[indexer] = value;
             }

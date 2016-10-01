@@ -103,10 +103,10 @@ float aspect_ratio;
 uint8_t se_roll, se_nick, se_gier;
 float se_roll_sign, se_nick_sign, se_gier_sign;
 
-uint8_t tim_ch_1;
-uint8_t tim_ch_2;
-uint8_t tim_ch_3;
-uint8_t tim_ch_4;
+uint8_t motor1_tim_ch;
+uint8_t motor2_tim_ch;
+uint8_t motor3_tim_ch;
+uint8_t motor4_tim_ch;
 
 uint8_t rc_thrust;
 uint8_t rc_roll;
@@ -204,10 +204,10 @@ void analyze_settings(void)
         }
     }
 
-    tim_ch_1 = p_settings->motor_1.tim_ch - 1;
-    tim_ch_2 = p_settings->motor_2.tim_ch - 1;
-    tim_ch_3 = p_settings->motor_3.tim_ch - 1;
-    tim_ch_4 = p_settings->motor_4.tim_ch - 1;
+    motor1_tim_ch = p_settings->motor_1.tim_ch - 1;
+    motor2_tim_ch = p_settings->motor_2.tim_ch - 1;
+    motor3_tim_ch = p_settings->motor_3.tim_ch - 1;
+    motor4_tim_ch = p_settings->motor_4.tim_ch - 1;
 
     rot_dir[M1] = p_settings->motor_1.rotational_direction;
     rot_dir[M2] = p_settings->motor_2.rotational_direction;
