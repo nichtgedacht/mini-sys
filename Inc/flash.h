@@ -137,8 +137,8 @@ extern "C"
 #define ADDR_FLASH_PAGE_126   ((uint32_t)0x0801F800) // Base @ of Page 126, 1 Kbytes
 #define ADDR_FLASH_PAGE_127   ((uint32_t)0x0801FC00) // Base @ of Page 127, 1 Kbytes
 
-#define FLASH_USER_START_ADDR   ADDR_FLASH_PAGE_125                     // Start @ of user Flash area
-#define FLASH_USER_END_ADDR     ADDR_FLASH_PAGE_125 + FLASH_PAGE_SIZE   // End @ of user Flash area
+#define FLASH_USER_START_ADDR   ADDR_FLASH_PAGE_126                     // Start @ of user Flash area
+#define FLASH_USER_END_ADDR     FLASH_USER_START_ADDR + FLASH_PAGE_SIZE   // End @ of user Flash area
 
 uint32_t erase_flash_page(void);
 uint32_t write_flash_fvars(float* data, uint16_t length, uint16_t offset);

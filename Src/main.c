@@ -97,6 +97,7 @@ uint32_t systick_val1, systick_val2;
 uint8_t rcv_settings = 0;
 uint8_t snd_settings = 0;
 uint8_t snd_channels = 0;
+uint8_t rcv_motors = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -325,7 +326,10 @@ int main(void)
             }
             else // not armed or fail save or USB connected, motor stop except if motor test running
             {
-                halt_reset();
+                if ( rcv_motors == 0 || hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED )
+                {
+                    halt_reset();
+                }
 
                 // prevent overflow after many hours
                 failsafe_counter = 100;
@@ -369,7 +373,7 @@ int main(void)
                                 }
                             }
                         }
-                    }                                                 // request bootloader received
+                    }
                     else if (strcmp((const char *) received_data, (const char *) "bootloader") == 0)
                     {
                         //setting flag in flash
@@ -431,41 +435,101 @@ int main(void)
                         USBD_CDC_ReceivePacket(&hUsbDeviceFS);
                         //HAL_NVIC_SystemReset();
                     }
-                    else if (strcmp((const char *) received_data, (const char *) "send_channels") == 0)
+                    else if (strcmp((const char *) received_data, (const char *) "config_tab") == 0)
                     {
                         snd_channels = 1;
+                        rcv_motors = 0;
                         cdc_received_tot = 0;
                         cdc_received = 0;
                         USBD_CDC_ReceivePacket(&hUsbDeviceFS);
 
-                        sprintf(buf, "send_channels");
+                        sprintf(buf, "config_tab");
                         BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
                         BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
                         BSP_LCD_FillRect(0, 11 * 12, BSP_LCD_GetXSize(), 12);
                         BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
                         BSP_LCD_DisplayStringAtLine(11, (uint8_t *) buf);
                     }
-                    else if (strcmp((const char *) received_data, (const char *) "stop_channels") == 0)
+                    else if (strcmp((const char *) received_data, (const char *) "flight_tab") == 0)
                     {
                         snd_channels = 0;
+                        rcv_motors = 0;
                         cdc_received_tot = 0;
                         cdc_received = 0;
                         USBD_CDC_ReceivePacket(&hUsbDeviceFS);
 
-                        sprintf(buf, "stop_channels");
+                        sprintf(buf, "flight_tab");
                         BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
                         BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
                         BSP_LCD_FillRect(0, 11 * 12, BSP_LCD_GetXSize(), 12);
                         BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
                         BSP_LCD_DisplayStringAtLine(11, (uint8_t *) buf);
                     }
+                    else if (strcmp((const char *) received_data, (const char *) "motors_tab") == 0)
+                    {
+                        snd_channels = 0;
+                        rcv_motors = 1;
+                        cdc_received_tot = 0;
+                        cdc_received = 0;
+                        USBD_CDC_ReceivePacket(&hUsbDeviceFS);
+
+                        sprintf(buf, "motors_tab");
+                        BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+                        BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
+                        BSP_LCD_FillRect(0, 11 * 12, BSP_LCD_GetXSize(), 12);
+                        BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+                        BSP_LCD_DisplayStringAtLine(11, (uint8_t *) buf);
+                    }
+                    else if (strcmp((const char *) received_data, (const char *) "live_tab") == 0)
+                    {
+                        snd_channels = 0;
+                        rcv_motors = 0;
+                        cdc_received_tot = 0;
+                        cdc_received = 0;
+                        USBD_CDC_ReceivePacket(&hUsbDeviceFS);
+
+                        sprintf(buf, "live_tab");
+                        BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+                        BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
+                        BSP_LCD_FillRect(0, 11 * 12, BSP_LCD_GetXSize(), 12);
+                        BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+                        BSP_LCD_DisplayStringAtLine(11, (uint8_t *) buf);
+                    }
+                    else if (strcmp((const char *) received_data, (const char *) "fw_tab") == 0)
+                    {
+                        snd_channels = 0;
+                        rcv_motors = 0;
+                        cdc_received_tot = 0;
+                        cdc_received = 0;
+                        USBD_CDC_ReceivePacket(&hUsbDeviceFS);
+
+                        sprintf(buf, "fw_tab");
+                        BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+                        BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
+                        BSP_LCD_FillRect(0, 11 * 12, BSP_LCD_GetXSize(), 12);
+                        BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+                        BSP_LCD_DisplayStringAtLine(11, (uint8_t *) buf);
+                    }
+                    else if (rcv_motors == 1)
+                    {
+                        servos[motor1_tim_ch] = atoi( strtok((char *) received_data, ",") );
+                        servos[motor2_tim_ch] = atoi( strtok(NULL, ",") );
+                        servos[motor3_tim_ch] = atoi( strtok(NULL, ",") );
+                        servos[motor4_tim_ch] = atoi( strtok(NULL, ",") );
+
+                        sprintf(buf2, "motors_receipt\n");
+                        CDC_Transmit_FS((uint8_t*) buf2, strlen(buf2));
+
+                        cdc_received_tot = 0;
+                        cdc_received = 0;
+                        USBD_CDC_ReceivePacket(&hUsbDeviceFS);
+                    }                                                  // request bootloader received
                     else // recover from broken input
                     {
                         cdc_received_tot = 0;
                         cdc_received = 0;
                         USBD_CDC_ReceivePacket(&hUsbDeviceFS);
                     }
-
                 } //cdc_received
 
                 // sending 1k data of settings flash page
@@ -503,15 +567,15 @@ int main(void)
 
                 }
 
-                free_ram = (0x20000000 + 1024 * 20) - (uint32_t) sbrk((int) 0);
-                sprintf(buf, "free: %ld", free_ram);
+                //free_ram = (0x20000000 + 1024 * 20) - (uint32_t) sbrk((int) 0);
+                //sprintf(buf, "free: %ld", free_ram);
                 //sprintf(buf, "ch6: %ld", channels[6]);
+                sprintf(buf, "%d %d %d", servos[0], servos[1], servos[2] );
                 BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
                 BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
                 BSP_LCD_FillRect(0, 12 * 12, BSP_LCD_GetXSize(), 12);
                 BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
                 BSP_LCD_DisplayStringAtLine(12, (uint8_t *) buf);
-
             }
 
             //tick = HAL_GetTick();
@@ -600,27 +664,27 @@ int main(void)
                     if (channels[rc_mode] < 1400)
                     {
                         // show and program by RC the current PID values
-                        draw_program_pid_values(2, pid_vars[RKp], "Roll Kp: %3.5f", indexer, 2);
-                        draw_program_pid_values(3, pid_vars[RKi], "Roll Ki: %3.5f", indexer, 2);
-                        draw_program_pid_values(4, pid_vars[RKd], "Roll Kd: %3.5f", indexer, 2);
-                        draw_program_pid_values(5, pid_vars[NKp], "Nick Kp: %3.5f", indexer, 2);
-                        draw_program_pid_values(6, pid_vars[NKi], "Nick Ki: %3.5f", indexer, 2);
-                        draw_program_pid_values(7, pid_vars[NKd], "Nick Kd: %3.5f", indexer, 2);
-                        draw_program_pid_values(8, pid_vars[GKp], "Gier Kp: %3.5f", indexer, 2);
-                        draw_program_pid_values(9, pid_vars[GKi], "Gier Ki: %3.5f", indexer, 2);
-                        draw_program_pid_values(10, pid_vars[GKd], "Gier Kd: %3.5f", indexer, 2);
+                        draw_program_pid_values(2, pid_vars[RKp],  "Roll   Kp: %3.5f", indexer, 2);
+                        draw_program_pid_values(3, pid_vars[RKi],  "Roll   Ki: %3.5f", indexer, 2);
+                        draw_program_pid_values(4, pid_vars[RKd],  "Roll   Kd: %3.5f", indexer, 2);
+                        draw_program_pid_values(5, pid_vars[NKp],  "Nick   Kp: %3.5f", indexer, 2);
+                        draw_program_pid_values(6, pid_vars[NKi],  "Nick   Ki: %3.5f", indexer, 2);
+                        draw_program_pid_values(7, pid_vars[NKd],  "Nick   Kd: %3.5f", indexer, 2);
+                        draw_program_pid_values(8, pid_vars[GKp],  "Gier   Kp: %3.5f", indexer, 2);
+                        draw_program_pid_values(9, pid_vars[GKi],  "Gier   Ki: %3.5f", indexer, 2);
+                        draw_program_pid_values(10, pid_vars[GKd], "Gier   Kd: %3.5f", indexer, 2);
                     }
                     else
                     {
                         // show and program by RC the current level flight PID values
-                        draw_program_pid_values(2, l_pid_vars[RKp], "Roll l_Kp: %3.5f", indexer, 2);
-                        draw_program_pid_values(3, l_pid_vars[RKi], "Roll l_Ki: %3.5f", indexer, 2);
-                        draw_program_pid_values(4, l_pid_vars[RKd], "Roll l_Kd: %3.5f", indexer, 2);
-                        draw_program_pid_values(5, l_pid_vars[NKp], "Nick l_Kp: %3.5f", indexer, 2);
-                        draw_program_pid_values(6, l_pid_vars[NKi], "Nick l_Ki: %3.5f", indexer, 2);
-                        draw_program_pid_values(7, l_pid_vars[NKd], "Nick l_Kd: %3.5f", indexer, 2);
-                        draw_program_pid_values(8, l_pid_vars[GKp], "Gier l_Kp: %3.5f", indexer, 2);
-                        draw_program_pid_values(9, l_pid_vars[GKi], "Gier l_Ki: %3.5f", indexer, 2);
+                        draw_program_pid_values(2, l_pid_vars[RKp],  "Roll l_Kp: %3.5f", indexer, 2);
+                        draw_program_pid_values(3, l_pid_vars[RKi],  "Roll l_Ki: %3.5f", indexer, 2);
+                        draw_program_pid_values(4, l_pid_vars[RKd],  "Roll l_Kd: %3.5f", indexer, 2);
+                        draw_program_pid_values(5, l_pid_vars[NKp],  "Nick l_Kp: %3.5f", indexer, 2);
+                        draw_program_pid_values(6, l_pid_vars[NKi],  "Nick l_Ki: %3.5f", indexer, 2);
+                        draw_program_pid_values(7, l_pid_vars[NKd],  "Nick l_Kd: %3.5f", indexer, 2);
+                        draw_program_pid_values(8, l_pid_vars[GKp],  "Gier l_Kp: %3.5f", indexer, 2);
+                        draw_program_pid_values(9, l_pid_vars[GKi],  "Gier l_Ki: %3.5f", indexer, 2);
                         draw_program_pid_values(10, l_pid_vars[GKd], "Gier l_Kd: %3.5f", indexer, 2);
                     }
                 }
