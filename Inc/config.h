@@ -114,8 +114,9 @@ extern settings *p_settings;
 
 extern void Error_Handler(void);
 
-void check_settings(void);
+void check_settings_page(void);
 void analyze_settings(void);
 void load_default_settings(void);
+void start_bootloader (void);
 
 #endif

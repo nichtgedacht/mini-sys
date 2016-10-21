@@ -17,16 +17,16 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
     {
         switch (htim->Channel)
         {
-        case HAL_TIM_ACTIVE_CHANNEL_1:    // Pin 11 (maple) Motor rear left
+        case HAL_TIM_ACTIVE_CHANNEL_1:    // Pin 11 (maple)
             TIM2->CCR1 = servos[0]; //alt use __HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, servos[0]);
             break;
-        case HAL_TIM_ACTIVE_CHANNEL_2:    // Pin 10 (maple) Motor front right
+        case HAL_TIM_ACTIVE_CHANNEL_2:    // Pin 10 (maple)
             TIM2->CCR2 = servos[1];
             break;
-        case HAL_TIM_ACTIVE_CHANNEL_3:    // Pin 9 (maple) Motor rear right
+        case HAL_TIM_ACTIVE_CHANNEL_3:    // Pin 9 (maple)
             TIM2->CCR3 = servos[2];
             break;
-        case HAL_TIM_ACTIVE_CHANNEL_4:    // Pin 8 (maple) Motor front left
+        case HAL_TIM_ACTIVE_CHANNEL_4:    // Pin 8 (maple)
             TIM2->CCR4 = servos[3];
             break;
         case HAL_TIM_ACTIVE_CHANNEL_CLEARED:

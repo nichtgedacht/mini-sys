@@ -64,8 +64,6 @@
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 
-#define BOOTLOADER_ADDRESS 0x08000000
-
 typedef void (*pFunction)(void);
 
 uint8_t counter = 0;
@@ -80,7 +78,7 @@ float volt1 = 0.0f;
 uint32_t free_ram;
 char buf[50] =
 { 0 };
-char buf2[70] =
+char buf2[100] =
 { 0 };
 const uint8_t flash_top = 255;
 uint32_t free_flash;
@@ -97,7 +95,11 @@ uint32_t systick_val1, systick_val2;
 uint8_t rcv_settings = 0;
 uint8_t snd_settings = 0;
 uint8_t snd_channels = 0;
+uint8_t snd_live = 0;
 uint8_t rcv_motors = 0;
+uint8_t live_receipt = 0;
+uint8_t channels_receipt = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -149,7 +151,7 @@ int main(void)
     HAL_Delay(100);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET);
 
-    check_settings();
+    check_settings_page();
     analyze_settings();
 
     if (p_settings->receiver == SBUS)
@@ -188,6 +190,8 @@ int main(void)
     BSP_LCD_Clear(LCD_COLOR_BLACK);
     BSP_LCD_SetRotation(0);
     BSP_LCD_SetFont(&Font12);
+    BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+    BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
 
     //for water bubble
     xp = BSP_LCD_GetXSize() / 2;
@@ -343,23 +347,22 @@ int main(void)
                         if (cdc_received_tot < 1024)
                         {
                             cdc_received = 0;
-                            // rearm receiving
                             USBD_CDC_ReceivePacket(&hUsbDeviceFS);
                         }
                         else // 1k received
                         {
                             sprintf(buf, "%d", cdc_received_tot);
-                            BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-                            BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
-                            BSP_LCD_FillRect(0, 1 * 12, BSP_LCD_GetXSize(), 12);
-                            BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-                            BSP_LCD_DisplayStringAtLine(1, (uint8_t *) buf);
+                            BSP_LCD_ClearStringLine(10);
+                            BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
+                            BSP_LCD_DisplayStringAt(0, LINE(10), (uint8_t *) buf, LEFT_MODE);
+
+                            rcv_settings = 0;
 
                             cdc_received = 0;
-                            // reset index
                             cdc_received_tot = 0;
                             USBD_CDC_ReceivePacket(&hUsbDeviceFS);
-                            rcv_settings = 0;
+
+                            p_settings = (settings *) received_data;
 
                             if (erase_flash_page() != HAL_OK)
                             {
@@ -367,12 +370,28 @@ int main(void)
                             }
                             else
                             {
-                                if (write_flash_vars((uint32_t*) received_data, 256, 0) != HAL_OK)
+                                if (p_settings->magic == 0xdb )
+                                {
+                                    if (write_flash_vars((uint32_t*) received_data, 256, 0) != HAL_OK)
+                                    {
+                                        Error_Handler();
+                                    }
+                                    else
+                                    {
+                                        sprintf(buf2, "settings_rcvd\n");
+                                        CDC_Transmit_FS((uint8_t*) buf2, strlen(buf2));
+                                    }
+                                }
+                                else
                                 {
                                     Error_Handler();
                                 }
                             }
                         }
+                    }
+                    else if (strcmp((const char *) received_data, (const char *) "reboot") == 0)
+                    {
+                        start_bootloader();
                     }
                     else if (strcmp((const char *) received_data, (const char *) "bootloader") == 0)
                     {
@@ -380,135 +399,171 @@ int main(void)
                         //so reborn as bootloader we can know that we should not start this live immediately again
                         // write string "DFU" (4 bytes incl. trailing \0) to last 32 bit wide space of flash page
                         write_flash_vars((uint32_t*) "DFU", 1, 1020);
-
-                        // is this really needed? I think it is not
-                        HAL_NVIC_DisableIRQ(USB_LP_CAN1_RX0_IRQn);
-                        HAL_NVIC_DisableIRQ(USART1_IRQn);
-                        HAL_NVIC_DisableIRQ(TIM2_IRQn);
-
-                        // set stackpointer pointing to bootloader startup and reset system
-                        __set_MSP(*(__IO uint32_t*) BOOTLOADER_ADDRESS);
-                        HAL_NVIC_SystemReset();
+                        start_bootloader();
                     }
-                    else if (strcmp((const char *) received_data, (const char *) "reboot") == 0)
-                    {
-                        HAL_NVIC_SystemReset();
-                    }                                        // request for receiving settings received
                     else if (strcmp((const char *) received_data, (const char *) "push_settings") == 0)
                     {
+                        rcv_settings = 1;
+
+                        // neu
+                        snd_live = 0;
+                        snd_channels = 0;
+                        rcv_motors = 0;
+                        //neu
+
                         cdc_received_tot = 0;
                         cdc_received = 0;
-                        rcv_settings = 1;
                         USBD_CDC_ReceivePacket(&hUsbDeviceFS);
 
-                        sprintf(buf, "<%s>", "XXXX");
-                        BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-                        BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
-                        BSP_LCD_FillRect(0, 1 * 12, BSP_LCD_GetXSize(), 12);
-                        BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-                        BSP_LCD_DisplayStringAtLine(1, (uint8_t *) buf);
+                        HAL_Delay(100);
+
+                        sprintf(buf2, "ok_push\n");
+                        CDC_Transmit_FS((uint8_t*) buf2, strlen(buf2));
+
+                        sprintf(buf, "XXXXXXXXXX");
+                        BSP_LCD_ClearStringLine(10);
+                        BSP_LCD_SetTextColor(LCD_COLOR_RED);
+                        BSP_LCD_DisplayStringAt(0, LINE(10), (uint8_t *) buf, LEFT_MODE);
 
                     }                                        // request for sending settings received
                     else if (strcmp((const char *) received_data, (const char *) "pull_settings") == 0)
                     {
+                        snd_settings = 1;
+
+                        // neu
+                        snd_live = 0;
+                        snd_channels = 0;
+                        rcv_motors = 0;
+                        // neu
+
                         cdc_received_tot = 0;
                         cdc_received = 0;
-                        snd_settings = 1;
-                        //snd_channels = 0;
                         USBD_CDC_ReceivePacket(&hUsbDeviceFS);
+
                         read_flash_vars((uint32_t *) flash_buf, 256, 0);
 
-                        sprintf(buf, "<%s>", "XXXX");
-                        BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-                        BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
-                        BSP_LCD_FillRect(0, 0 * 12, BSP_LCD_GetXSize(), 12);
-                        BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-                        BSP_LCD_DisplayStringAtLine(0, (uint8_t *) buf);
+                        sprintf(buf, "XXXXXXXXXX");
+                        BSP_LCD_ClearStringLine(11);
+                        BSP_LCD_SetTextColor(LCD_COLOR_RED);
+                        BSP_LCD_DisplayStringAt(0, LINE(11), (uint8_t *) buf, LEFT_MODE);
 
-                        //HAL_Delay(300);
                     }
                     else if (strcmp((const char *) received_data, (const char *) "load_defaults") == 0)
                     {
                         load_default_settings();
+
                         cdc_received_tot = 0;
                         cdc_received = 0;
                         USBD_CDC_ReceivePacket(&hUsbDeviceFS);
                         //HAL_NVIC_SystemReset();
                     }
-                    else if (strcmp((const char *) received_data, (const char *) "config_tab") == 0)
+                    /*
+                    else if (strcmp((const char *) received_data, (const char *) "suspend") == 0)
                     {
-                        snd_channels = 1;
-                        rcv_motors = 0;
-                        cdc_received_tot = 0;
-                        cdc_received = 0;
-                        USBD_CDC_ReceivePacket(&hUsbDeviceFS);
-
-                        sprintf(buf, "config_tab");
-                        BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-                        BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
-                        BSP_LCD_FillRect(0, 11 * 12, BSP_LCD_GetXSize(), 12);
-                        BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-                        BSP_LCD_DisplayStringAtLine(11, (uint8_t *) buf);
-                    }
-                    else if (strcmp((const char *) received_data, (const char *) "flight_tab") == 0)
-                    {
+                        snd_live = 0;
                         snd_channels = 0;
                         rcv_motors = 0;
+
+                        sprintf(buf2, "ok_suspend\n");
+                        CDC_Transmit_FS((uint8_t*) buf2, strlen(buf2));
+
+                        cdc_received_tot = 0;
+                        cdc_received = 0;
+                        USBD_CDC_ReceivePacket(&hUsbDeviceFS);
+                    }
+                    */
+                    else if (strcmp((const char *) received_data, (const char *) "fw_tab") == 0)
+                    {
+                        snd_live = 0;
+                        snd_channels = 0;
+                        rcv_motors = 0;
+
                         cdc_received_tot = 0;
                         cdc_received = 0;
                         USBD_CDC_ReceivePacket(&hUsbDeviceFS);
 
-                        sprintf(buf, "flight_tab");
-                        BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-                        BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
-                        BSP_LCD_FillRect(0, 11 * 12, BSP_LCD_GetXSize(), 12);
-                        BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-                        BSP_LCD_DisplayStringAtLine(11, (uint8_t *) buf);
+                        sprintf(buf, "Firmware");
+                        BSP_LCD_ClearStringLine(0);
+                        BSP_LCD_SetTextColor(LCD_COLOR_RED);
+                        BSP_LCD_DisplayStringAt(0, LINE(0), (uint8_t *) buf, CENTER_MODE);
+                    }
+                    else if (strcmp((const char *) received_data, (const char *) "config_tab") == 0)
+                    {
+                        snd_live = 0;
+                        snd_channels = 1;
+                        channels_receipt = 1;
+                        rcv_motors = 0;
+
+                        cdc_received_tot = 0;
+                        cdc_received = 0;
+                        USBD_CDC_ReceivePacket(&hUsbDeviceFS);
+
+                        sprintf(buf, "Configuration");
+                        BSP_LCD_ClearStringLine(0);
+                        BSP_LCD_SetTextColor(LCD_COLOR_RED);
+                        BSP_LCD_DisplayStringAt(0, LINE(0), (uint8_t *) buf, CENTER_MODE);
                     }
                     else if (strcmp((const char *) received_data, (const char *) "motors_tab") == 0)
                     {
+                        snd_live = 0;
                         snd_channels = 0;
                         rcv_motors = 1;
+
                         cdc_received_tot = 0;
                         cdc_received = 0;
                         USBD_CDC_ReceivePacket(&hUsbDeviceFS);
 
-                        sprintf(buf, "motors_tab");
-                        BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-                        BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
-                        BSP_LCD_FillRect(0, 11 * 12, BSP_LCD_GetXSize(), 12);
-                        BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-                        BSP_LCD_DisplayStringAtLine(11, (uint8_t *) buf);
+                        sprintf(buf, "Motor Test");
+                        BSP_LCD_ClearStringLine(0);
+                        BSP_LCD_SetTextColor(LCD_COLOR_RED);
+                        BSP_LCD_DisplayStringAt(0, LINE(0), (uint8_t *) buf, CENTER_MODE);
+                    }
+                    else if (strcmp((const char *) received_data, (const char *) "flight_tab") == 0)
+                    {
+                        snd_live = 0;
+                        snd_channels = 0;
+                        rcv_motors = 0;
+
+                        cdc_received_tot = 0;
+                        cdc_received = 0;
+                        USBD_CDC_ReceivePacket(&hUsbDeviceFS);
+
+                        sprintf(buf, "Flight Setup");
+                        BSP_LCD_ClearStringLine(0);
+                        BSP_LCD_SetTextColor(LCD_COLOR_RED);
+                        BSP_LCD_DisplayStringAt(0, LINE(0), (uint8_t *) buf, CENTER_MODE);
                     }
                     else if (strcmp((const char *) received_data, (const char *) "live_tab") == 0)
                     {
+                        snd_live = 1;
                         snd_channels = 0;
                         rcv_motors = 0;
+                        live_receipt = 1;
+
                         cdc_received_tot = 0;
                         cdc_received = 0;
                         USBD_CDC_ReceivePacket(&hUsbDeviceFS);
 
-                        sprintf(buf, "live_tab");
-                        BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-                        BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
-                        BSP_LCD_FillRect(0, 11 * 12, BSP_LCD_GetXSize(), 12);
-                        BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-                        BSP_LCD_DisplayStringAtLine(11, (uint8_t *) buf);
+                        sprintf(buf, "Live Plots");
+                        BSP_LCD_Clear(LCD_COLOR_BLACK);
+                        BSP_LCD_SetTextColor(LCD_COLOR_RED);
+                        BSP_LCD_DisplayStringAt(0, LINE(0), (uint8_t *) buf, CENTER_MODE);
                     }
-                    else if (strcmp((const char *) received_data, (const char *) "fw_tab") == 0)
+                    else if (strcmp((const char *) received_data, (const char *) "live_receipt") == 0)
                     {
-                        snd_channels = 0;
-                        rcv_motors = 0;
+                        cdc_received_tot = 0;
+                        cdc_received = 0;
+                        live_receipt = 1;
+                        USBD_CDC_ReceivePacket(&hUsbDeviceFS);
+
+                    }
+                    else if (strcmp((const char *) received_data, (const char *) "channels_receipt") == 0)
+                    {
+                        channels_receipt = 1;
+
                         cdc_received_tot = 0;
                         cdc_received = 0;
                         USBD_CDC_ReceivePacket(&hUsbDeviceFS);
-
-                        sprintf(buf, "fw_tab");
-                        BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-                        BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
-                        BSP_LCD_FillRect(0, 11 * 12, BSP_LCD_GetXSize(), 12);
-                        BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-                        BSP_LCD_DisplayStringAtLine(11, (uint8_t *) buf);
                     }
                     else if (rcv_motors == 1)
                     {
@@ -523,7 +578,7 @@ int main(void)
                         cdc_received_tot = 0;
                         cdc_received = 0;
                         USBD_CDC_ReceivePacket(&hUsbDeviceFS);
-                    }                                                  // request bootloader received
+                    }
                     else // recover from broken input
                     {
                         cdc_received_tot = 0;
@@ -539,23 +594,23 @@ int main(void)
                     usb_res = CDC_Transmit_FS((uint8_t*) flash_buf, 1024);
 
                     sprintf(buf, "%d", usb_res);
-                    BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-                    BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
-                    BSP_LCD_FillRect(0, 0 * 12, BSP_LCD_GetXSize(), 12);
-                    BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-                    BSP_LCD_DisplayStringAtLine(0, (uint8_t *) buf);
+                    BSP_LCD_ClearStringLine(11);
+                    BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
+                    BSP_LCD_DisplayStringAt(0, LINE(11), (uint8_t *) buf, LEFT_MODE);
 
                     if (usb_res != USBD_BUSY)
                     {
                         snd_settings = 0;
                     }
                 }
-                else if (snd_channels == 1)  // sending channels
+                else if (snd_channels == 1 && channels_receipt == 1 )  // sending channels
                 {
                     sprintf(buf2, "%d %d %d %d %d %d %d %d %d %d %d %d\n", channels[rc_thrust], channels[rc_roll],
                             channels[rc_nick], channels[rc_gier], channels[rc_arm], channels[rc_mode],
                             channels[rc_beep], channels[rc_prog], channels[rc_var], channels[rc_aux1],
                             channels[rc_aux2], channels[rc_aux3]);
+
+                    channels_receipt = 0;
 
                     CDC_Transmit_FS((uint8_t*) buf2, strlen(buf2));
 
@@ -564,18 +619,39 @@ int main(void)
                     //sprintf(buf2, "%3.3f,%3.3f,%3.3f\n", e_gier,
                     //                                     e_nick,
                     //                                     e_roll);
+                }
+                else if ( snd_live == 1 && live_receipt == 1)
+                {
+                    //sprintf(buf2, "%1.3f %1.3f %1.3f %4.3f %4.3f %4.3f\n",
+                    //        ac[se_roll], ac[se_nick], ac[se_gier],
+                    //        gy[se_roll], gy[se_nick], gy[se_gier] );
 
+                    //sprintf(buf2, "-1.000 -1.000 -1.000 -1000.000 -1000.000 -1000.000 -100.000 -100.000 -100.000\n");
+
+
+                    sprintf(buf2, "%1.6f %1.6f %1.6f %4.3f %4.3f %4.3f %1.6f %1.6f %1.6f\n",
+                            ac[se_roll], ac[se_nick], ac[se_gier],
+                            gy[se_roll], gy[se_nick], gy[se_gier],
+                            e_roll, e_nick, e_gier);
+
+                    CDC_Transmit_FS((uint8_t*) buf2, strlen(buf2));
+                    live_receipt = 0;
                 }
 
-                //free_ram = (0x20000000 + 1024 * 20) - (uint32_t) sbrk((int) 0);
-                //sprintf(buf, "free: %ld", free_ram);
-                //sprintf(buf, "ch6: %ld", channels[6]);
-                sprintf(buf, "%d %d %d", servos[0], servos[1], servos[2] );
-                BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-                BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
-                BSP_LCD_FillRect(0, 12 * 12, BSP_LCD_GetXSize(), 12);
-                BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-                BSP_LCD_DisplayStringAtLine(12, (uint8_t *) buf);
+                /*
+                if ( snd_live == 0 )
+                {
+                    //free_ram = (0x20000000 + 1024 * 20) - (uint32_t) sbrk((int) 0);
+                    //sprintf(buf, "free: %ld", free_ram);
+                    //sprintf(buf, "ch6: %ld", channels[6]);
+                    sprintf(buf, "%d %d %d", servos[0], servos[1], servos[2]);
+                    BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+                    BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
+                    BSP_LCD_FillRect(0, 12 * 12, BSP_LCD_GetXSize(), 12);
+                    BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+                    BSP_LCD_DisplayStringAtLine(12, (uint8_t *) buf);
+                }
+                */
             }
 
             //tick = HAL_GetTick();
@@ -586,7 +662,8 @@ int main(void)
             //free_flash = (0x8000000 + 1024 * 128) - (uint32_t) &flash_top;
             //sprintf(buf, "free: %ld bytes\n", free_flash);
 
-            //sprintf(buf, "%d %d %d %d %d %d\n", channels[rc_thrust], channels[rc_roll], channels[rc_nick], channels[rc_gier] , channels[rc_arm], channels[rc_mode]);
+            //sprintf(buf, "%d %d %d %d %d %d\n", channels[rc_thrust], channels[rc_roll], channels[rc_nick],
+            //               channels[rc_gier] , channels[rc_arm], channels[rc_mode]);
             //sprintf(buf, "dt: %ld\n", dt);
             //sprintf(buf2, "%3.3f,%3.3f,%3.3f\n", yaw, pitch, roll);
             //sprintf(buf, "%3.3f,%3.3f,%3.3f,%3.3f,%3.3f,%3.3f\n", ac[x], ac[y], ac[z], gy[x], gy[y], gy[z]);
@@ -661,31 +738,34 @@ int main(void)
 
                     back_channels[rc_beep] = channels[rc_beep];
 
-                    if (channels[rc_mode] < 1400)
+                    if ( snd_live == 0 ) // disable display while live data send
                     {
-                        // show and program by RC the current PID values
-                        draw_program_pid_values(2, pid_vars[RKp],  "Roll   Kp: %3.5f", indexer, 2);
-                        draw_program_pid_values(3, pid_vars[RKi],  "Roll   Ki: %3.5f", indexer, 2);
-                        draw_program_pid_values(4, pid_vars[RKd],  "Roll   Kd: %3.5f", indexer, 2);
-                        draw_program_pid_values(5, pid_vars[NKp],  "Nick   Kp: %3.5f", indexer, 2);
-                        draw_program_pid_values(6, pid_vars[NKi],  "Nick   Ki: %3.5f", indexer, 2);
-                        draw_program_pid_values(7, pid_vars[NKd],  "Nick   Kd: %3.5f", indexer, 2);
-                        draw_program_pid_values(8, pid_vars[GKp],  "Gier   Kp: %3.5f", indexer, 2);
-                        draw_program_pid_values(9, pid_vars[GKi],  "Gier   Ki: %3.5f", indexer, 2);
-                        draw_program_pid_values(10, pid_vars[GKd], "Gier   Kd: %3.5f", indexer, 2);
-                    }
-                    else
-                    {
-                        // show and program by RC the current level flight PID values
-                        draw_program_pid_values(2, l_pid_vars[RKp],  "Roll l_Kp: %3.5f", indexer, 2);
-                        draw_program_pid_values(3, l_pid_vars[RKi],  "Roll l_Ki: %3.5f", indexer, 2);
-                        draw_program_pid_values(4, l_pid_vars[RKd],  "Roll l_Kd: %3.5f", indexer, 2);
-                        draw_program_pid_values(5, l_pid_vars[NKp],  "Nick l_Kp: %3.5f", indexer, 2);
-                        draw_program_pid_values(6, l_pid_vars[NKi],  "Nick l_Ki: %3.5f", indexer, 2);
-                        draw_program_pid_values(7, l_pid_vars[NKd],  "Nick l_Kd: %3.5f", indexer, 2);
-                        draw_program_pid_values(8, l_pid_vars[GKp],  "Gier l_Kp: %3.5f", indexer, 2);
-                        draw_program_pid_values(9, l_pid_vars[GKi],  "Gier l_Ki: %3.5f", indexer, 2);
-                        draw_program_pid_values(10, l_pid_vars[GKd], "Gier l_Kd: %3.5f", indexer, 2);
+                        if (channels[rc_mode] < 1400)
+                        {
+                            // show and program by RC the current PID values
+                            draw_program_pid_values(1, pid_vars[RKp],  "Roll   Kp: %3.5f", indexer, 1);
+                            draw_program_pid_values(2, pid_vars[RKi],  "Roll   Ki: %3.5f", indexer, 1);
+                            draw_program_pid_values(3, pid_vars[RKd],  "Roll   Kd: %3.5f", indexer, 1);
+                            draw_program_pid_values(4, pid_vars[NKp],  "Nick   Kp: %3.5f", indexer, 1);
+                            draw_program_pid_values(5, pid_vars[NKi],  "Nick   Ki: %3.5f", indexer, 1);
+                            draw_program_pid_values(6, pid_vars[NKd],  "Nick   Kd: %3.5f", indexer, 1);
+                            draw_program_pid_values(7, pid_vars[GKp],  "Gier   Kp: %3.5f", indexer, 1);
+                            draw_program_pid_values(8, pid_vars[GKi],  "Gier   Ki: %3.5f", indexer, 1);
+                            draw_program_pid_values(9, pid_vars[GKd],  "Gier   Kd: %3.5f", indexer, 1);
+                        }
+                        else
+                        {
+                            // show and program by RC the current level flight PID values
+                            draw_program_pid_values(1, l_pid_vars[RKp],  "Roll l_Kp: %3.5f", indexer, 1);
+                            draw_program_pid_values(2, l_pid_vars[RKi],  "Roll l_Ki: %3.5f", indexer, 1);
+                            draw_program_pid_values(3, l_pid_vars[RKd],  "Roll l_Kd: %3.5f", indexer, 1);
+                            draw_program_pid_values(4, l_pid_vars[NKp],  "Nick l_Kp: %3.5f", indexer, 1);
+                            draw_program_pid_values(5, l_pid_vars[NKi],  "Nick l_Ki: %3.5f", indexer, 1);
+                            draw_program_pid_values(6, l_pid_vars[NKd],  "Nick l_Kd: %3.5f", indexer, 1);
+                            draw_program_pid_values(7, l_pid_vars[GKp],  "Gier l_Kp: %3.5f", indexer, 1);
+                            draw_program_pid_values(8, l_pid_vars[GKi],  "Gier l_Ki: %3.5f", indexer, 1);
+                            draw_program_pid_values(9, l_pid_vars[GKd],  "Gier l_Kd: %3.5f", indexer, 1);
+                        }
                     }
                 }
                 else // armed, flight mode screen
@@ -934,7 +1014,7 @@ void draw_program_pid_values(uint8_t line, float value, char* format, uint8_t in
 
     BSP_LCD_SetTextColor(indexer == line - offset ? LCD_COLOR_BLUE : LCD_COLOR_BLACK);
     BSP_LCD_SetBackColor(indexer == line - offset ? LCD_COLOR_BLUE : LCD_COLOR_BLACK);
-    BSP_LCD_FillRect(60, line * 12, BSP_LCD_GetXSize() - 80, 12);
+    BSP_LCD_FillRect(80, line * 12, BSP_LCD_GetXSize() - 80, 12);
     sprintf(buf, format, value);
     BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
     BSP_LCD_DisplayStringAtLine(line, (uint8_t *) buf);

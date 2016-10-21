@@ -335,20 +335,9 @@ uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len)
     }
     else
     {
-
         // send in parts until success or error
         while (bytes_written < Len && result != USBD_FAIL)
         {
-
-            /* commented out because it works without delay with socat and with qt5 serial
-             // if faster the data don't get drained safely. Why?
-             // delay only if previous chunk was written
-             if ( bytes_written > 0 )
-             {
-             HAL_Delay(20);
-             }
-             */
-
             // size of part is APP_TX_DATA_SIZE or remainder
             bytes_to_write = (Len - bytes_written) > APP_TX_DATA_SIZE ? APP_TX_DATA_SIZE : (Len - bytes_written);
 
@@ -357,8 +346,6 @@ uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len)
             USBD_CDC_SetTxBuffer(&hUsbDeviceFS, UserTxBufferFS, bytes_to_write);
 
             // Check if USB disconnected while retrying
-            //if ( hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED || hUsbDeviceFS.ep0_state == USBD_EP0_DATA_IN )
-            //if ( hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED || hUsbDeviceFS.ep0_state == USBD_EP0_STATUS_IN )
             if (hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED)
             {
                 result = USBD_FAIL;

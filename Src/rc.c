@@ -96,7 +96,7 @@ void HAL_UART_RxCpltCallback_SRXL(UART_HandleTypeDef *huart)
         {
             if ( rc_rev[i] == 1 )
             {
-                channels[i] = 4096 - channels[i];
+                channels[i] = 4095 - channels[i];
             }
         }
 
@@ -162,7 +162,7 @@ void HAL_UART_RxCpltCallback_SBUS(UART_HandleTypeDef *huart)
         {
             if ( rc_rev[i] == 1 )
             {
-                channels[i] = 4096 - channels[i];
+                channels[i] = 4095 - channels[i];
             }
         }
 

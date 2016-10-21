@@ -82,9 +82,9 @@ const settings default_settings =
         0xff,  // padding
         0xff,  // padding
         1.0f,  // aspect_ratio
-        { {0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0}, {5, 0}, {6, 0}, {7, 0}, {8, 0}, {9, 0}, {10, 0}, {11, 0}, {12, 0} },
+        { {0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0}, {5, 0}, {6, 0}, {7, 0}, {8, 0}, {9, 0}, {10, 0}, {11, 0}, {12, 0} }, // rc_func
         0xff,  // padding
-        { {0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0}, {5, 0}, {6, 0}, {7, 0}, {8, 0}, {9, 0}, {10, 0}, {11, 0}, {12, 0} },
+        { {0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0}, {5, 0}, {6, 0}, {7, 0}, {8, 0}, {9, 0}, {10, 0}, {11, 0}, {12, 0} }, // rc_ch
         0xff,  // padding
         SRXL,  // Receiver type
         };
@@ -132,7 +132,7 @@ settings *p_settings;
 
 uint8_t receiver;
 
-void check_settings(void)
+void check_settings_page(void)
 {
     p_settings = (settings *) flash_buf;
     read_flash_vars((uint32_t *) flash_buf, 256, 0);
@@ -237,6 +237,8 @@ void analyze_settings(void)
 
 void load_default_settings(void)
 {
+    p_settings = (settings *) flash_buf;
+
     memset(flash_buf, 0xff, 1024);
 
     *p_settings = default_settings;
@@ -252,3 +254,7 @@ void load_default_settings(void)
     }
 }
 
+void start_bootloader (void)
+{
+    HAL_NVIC_SystemReset();
+}
