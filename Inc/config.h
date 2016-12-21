@@ -4,8 +4,8 @@
 #include "stm32f1xx_hal.h"
 #include "string.h"
 
-#define HAVE_DISPLAY
-#define HAVE_SD_CARD
+//#define HAVE_DISPLAY
+//#define HAVE_SD_CARD
 #define USE_SRXL
 //#define USE_SBUS
 

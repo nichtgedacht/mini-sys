@@ -91,7 +91,6 @@ uint32_t idle_counter;
 float cp_pid_vars[9];
 uint8_t i;
 uint8_t indexer = 0;
-uint32_t systick_val1, systick_val2;
 uint8_t rcv_settings = 0;
 uint8_t snd_settings = 0;
 uint8_t snd_channels = 0;
@@ -99,6 +98,8 @@ uint8_t snd_live = 0;
 uint8_t rcv_motors = 0;
 uint8_t live_receipt = 0;
 uint8_t channels_receipt = 0;
+uint32_t millis[2];
+uint32_t micros[2];
 
 /* USER CODE END PV */
 
@@ -182,7 +183,7 @@ int main(void)
     // 2   92 Hz
     // 3   41 Hz
     BSP_MPU_Init(0, 2, 0);
-    HAL_Delay(2000); // wait for silence after batteries plug in
+    HAL_Delay(4000); // wait for silence after batteries plug in
     BSP_MPU_GyroCalibration();
 
 #ifdef HAVE_DISPLAY
@@ -245,17 +246,25 @@ int main(void)
         /* USER CODE END WHILE */
 
         /* USER CODE BEGIN 3 */
-        //systick_val1 = SysTick->VAL; // SysTick->VAL reference probe
+
+        // reference probe
+        //millis[0] = HAL_GetTick();
+        //micros[0] = SysTick->VAL;
+
         if (PeriodElapsed == 1) // 200 Hz from servo timer
         {
-
-            //systick_val2 = SysTick->VAL;  // max 8 us
+            // max 8 us
+            // millis[1] = HAL_GetTick();
+            // micros[1] = SysTick->VAL;
 
             PeriodElapsed = 0;
             counter++;
             failsafe_counter++;
 
-            //systick_val2 = SysTick->VAL; // max 9 us
+            // max 9 us
+            //millis[1] = HAL_GetTick();
+            //micros[1] = SysTick->VAL;
+
 
             if (RC_RECEIVED == 1)
             {
@@ -263,12 +272,16 @@ int main(void)
                 failsafe_counter = 0;
             }
 
-            //systick_val2 = SysTick->VAL; // max 9 us
+            // max 9 us
+            //millis[1] = HAL_GetTick();
+            //micros[1] = SysTick->VAL;
 
             BSP_MPU_read_rot();
             BSP_MPU_read_acc();
 
-            //systick_val2 = SysTick->VAL; // max 122 us
+            // max 122 us
+            //millis[1] = HAL_GetTick();
+            //micros[1] = SysTick->VAL;
 
             // use int values se_roll, se_nick, se_gier as index to map different orientations of the sensor
             BSP_MPU_updateIMU(ac[se_roll] * se_roll_sign, ac[se_nick] * se_nick_sign, ac[se_gier] * se_gier_sign, gy[se_roll] * se_roll_sign,
@@ -277,7 +290,9 @@ int main(void)
             // then it comes out here properly mapped because Quaternions already changed axises
             BSP_MPU_getEuler(&e_roll, &e_nick, &e_gier);
 
-            //systick_val2 = SysTick->VAL;  // max 325 us
+            // max 325 us
+            //millis[1] = HAL_GetTick();
+            //micros[1] = SysTick->VAL;
 
             // armed only if arm switch on + not failsafe + not usb connected
             if (channels[rc_arm] > 2700 && failsafe_counter < 40 && hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED) // armed, flight mode
@@ -291,12 +306,17 @@ int main(void)
                     diffroll = gy[se_roll] * se_roll_sign * rate[se_roll] - (float) channels[rc_roll] + MIDDLE_POS; // native middle positions
                     diffnick = gy[se_nick] * se_nick_sign * rate[se_nick] - (float) channels[rc_nick] + MIDDLE_POS;
 
-                    // systick_val2 = SysTick->VAL; // max 334 us
+                    // max 334 us
+                    //millis[1] = HAL_GetTick();
+                    //micros[1] = SysTick->VAL;
 
                     roll_set = pid(x, scale_roll, diffroll, pid_vars[RKp], pid_vars[RKi], pid_vars[RKd], 5.0f);
                     nick_set = pid(y, scale_nick, diffnick, pid_vars[NKp], pid_vars[NKi], pid_vars[NKd], 5.0f);
 
-                    //systick_val2 = SysTick->VAL; // max 396 us
+                    // max 403 us
+                    //millis[1] = HAL_GetTick();
+                    //micros[1] = SysTick->VAL;
+
                 }
                 else // mode 2 and mode 3 are the same currently
                 {
@@ -314,18 +334,24 @@ int main(void)
                 diffgier = gy[se_gier] * se_gier_sign * rate[se_gier] + (float) channels[rc_gier] - MIDDLE_POS; // control reversed, gy right direction
                 gier_set = pid(z, 1.0f, diffgier, pid_vars[GKp], pid_vars[GKi], pid_vars[GKd], 5.0f);
 
-                // systick_val2 = SysTick->VAL; // max 434 us
+                // max 439 us
+                //millis[1] = HAL_GetTick();
+                //micros[1] = SysTick->VAL;
 
                 // scale thrust channel to have space for governor if max thrust is set
                 thrust_set = rintf((float) channels[rc_thrust] * 0.85f) + LOW_OFFS; // native middle position and 134 % are set
                 //thrust_set = (int16_t) channels[rc_thrust] + LOW_OFFS; // native middle position and 134 % are set
 
-                //systick_val2 = SysTick->VAL; // max 442 us
+                // max 442 us
+                //millis[1] = HAL_GetTick();
+                //micros[1] = SysTick->VAL;
 
                 control(thrust_set, roll_set, nick_set, gier_set);
                 // assured finished before first servo update by HAL_TIM_PWM_PulseFinishedCallback (1000 us)
 
-                //systick_val2 = SysTick->VAL; // max 488 us if all channels are inverted and receiver repeat rate 5ms
+                // max 488 us if all channels are inverted and receiver repeat rate 5ms
+                //millis[1] = HAL_GetTick();
+                //micros[1] = SysTick->VAL;
 
             }
             else // not armed or fail save or USB connected, motor stop except if motor test running
@@ -351,10 +377,12 @@ int main(void)
                         }
                         else // 1k received
                         {
+#ifdef HAVE_DISPLAY
                             sprintf(buf, "%d", cdc_received_tot);
                             BSP_LCD_ClearStringLine(10);
                             BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
                             BSP_LCD_DisplayStringAt(0, LINE(10), (uint8_t *) buf, LEFT_MODE);
+#endif
 
                             rcv_settings = 0;
 
@@ -420,10 +448,12 @@ int main(void)
                         sprintf(buf2, "ok_push\n");
                         CDC_Transmit_FS((uint8_t*) buf2, strlen(buf2));
 
+#ifdef HAVE_DISPLAY
                         sprintf(buf, "XXXXXXXXXX");
                         BSP_LCD_ClearStringLine(10);
                         BSP_LCD_SetTextColor(LCD_COLOR_RED);
                         BSP_LCD_DisplayStringAt(0, LINE(10), (uint8_t *) buf, LEFT_MODE);
+#endif
 
                     }                                        // request for sending settings received
                     else if (strcmp((const char *) received_data, (const char *) "pull_settings") == 0)
@@ -442,10 +472,12 @@ int main(void)
 
                         read_flash_vars((uint32_t *) flash_buf, 256, 0);
 
+#ifdef HAVE_DISPLAY
                         sprintf(buf, "XXXXXXXXXX");
                         BSP_LCD_ClearStringLine(11);
                         BSP_LCD_SetTextColor(LCD_COLOR_RED);
                         BSP_LCD_DisplayStringAt(0, LINE(11), (uint8_t *) buf, LEFT_MODE);
+#endif
 
                     }
                     else if (strcmp((const char *) received_data, (const char *) "load_defaults") == 0)
@@ -482,10 +514,12 @@ int main(void)
                         cdc_received = 0;
                         USBD_CDC_ReceivePacket(&hUsbDeviceFS);
 
+#ifdef HAVE_DISPLAY
                         sprintf(buf, "Firmware");
                         BSP_LCD_ClearStringLine(0);
                         BSP_LCD_SetTextColor(LCD_COLOR_RED);
                         BSP_LCD_DisplayStringAt(0, LINE(0), (uint8_t *) buf, CENTER_MODE);
+#endif
                     }
                     else if (strcmp((const char *) received_data, (const char *) "config_tab") == 0)
                     {
@@ -498,10 +532,12 @@ int main(void)
                         cdc_received = 0;
                         USBD_CDC_ReceivePacket(&hUsbDeviceFS);
 
+#ifdef HAVE_DISPLAY
                         sprintf(buf, "Configuration");
                         BSP_LCD_ClearStringLine(0);
                         BSP_LCD_SetTextColor(LCD_COLOR_RED);
                         BSP_LCD_DisplayStringAt(0, LINE(0), (uint8_t *) buf, CENTER_MODE);
+#endif
                     }
                     else if (strcmp((const char *) received_data, (const char *) "motors_tab") == 0)
                     {
@@ -513,10 +549,12 @@ int main(void)
                         cdc_received = 0;
                         USBD_CDC_ReceivePacket(&hUsbDeviceFS);
 
+#ifdef HAVE_DISPLAY
                         sprintf(buf, "Motor Test");
                         BSP_LCD_ClearStringLine(0);
                         BSP_LCD_SetTextColor(LCD_COLOR_RED);
                         BSP_LCD_DisplayStringAt(0, LINE(0), (uint8_t *) buf, CENTER_MODE);
+#endif
                     }
                     else if (strcmp((const char *) received_data, (const char *) "flight_tab") == 0)
                     {
@@ -528,10 +566,12 @@ int main(void)
                         cdc_received = 0;
                         USBD_CDC_ReceivePacket(&hUsbDeviceFS);
 
+#ifdef HAVE_DISPLAY
                         sprintf(buf, "Flight Setup");
                         BSP_LCD_ClearStringLine(0);
                         BSP_LCD_SetTextColor(LCD_COLOR_RED);
                         BSP_LCD_DisplayStringAt(0, LINE(0), (uint8_t *) buf, CENTER_MODE);
+#endif
                     }
                     else if (strcmp((const char *) received_data, (const char *) "live_tab") == 0)
                     {
@@ -544,10 +584,12 @@ int main(void)
                         cdc_received = 0;
                         USBD_CDC_ReceivePacket(&hUsbDeviceFS);
 
+#ifdef HAVE_DISPLAY
                         sprintf(buf, "Live Plots");
                         BSP_LCD_Clear(LCD_COLOR_BLACK);
                         BSP_LCD_SetTextColor(LCD_COLOR_RED);
                         BSP_LCD_DisplayStringAt(0, LINE(0), (uint8_t *) buf, CENTER_MODE);
+#endif
                     }
                     else if (strcmp((const char *) received_data, (const char *) "live_receipt") == 0)
                     {
@@ -593,10 +635,12 @@ int main(void)
                     HAL_Delay(300); // wait for live data on wire gets swallowed before send
                     usb_res = CDC_Transmit_FS((uint8_t*) flash_buf, 1024);
 
+#ifdef HAVE_DISPLAY
                     sprintf(buf, "%d", usb_res);
                     BSP_LCD_ClearStringLine(11);
                     BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
                     BSP_LCD_DisplayStringAt(0, LINE(11), (uint8_t *) buf, LEFT_MODE);
+#endif
 
                     if (usb_res != USBD_BUSY)
                     {
@@ -652,7 +696,7 @@ int main(void)
                     BSP_LCD_DisplayStringAtLine(12, (uint8_t *) buf);
                 }
                 */
-            }
+            } // not armed
 
             //tick = HAL_GetTick();
             //dt = tick - prev_tick;
@@ -856,11 +900,27 @@ int main(void)
 
             }
 
-            //sprintf(buf2, "elapsed: %ld usec\n", (systick_val1 - systick_val2) / 72 );
             //sprintf(buf2, "%ld\n", idle_counter);
-            //sprintf(buf2, "roll_set: %d nick_set: %d gier_set: %d\n", roll_set, nick_set, gier_set);
-
             //CDC_Transmit_FS((uint8_t*) buf2, strlen(buf2));
+
+            // max 4510 us in water bubble period
+            //millis[1] = HAL_GetTick();
+            //micros[1] = SysTick->VAL;
+
+            /*
+            if ( micros[0] > micros[1] )
+            {
+                sprintf(buf2, "diff: %ld\n", ( micros[0] - micros[1] ) / 72 + 1000 * ( millis[1] - millis[0] ) );
+                //sprintf(buf2, "millis0: %ld micros0: %ld millis1: %ld micros1: %ld\n", millis[0], micros[0]/72, millis[1], micros[1]/72 );
+            }
+            else // systick counter rounded between probes
+            {
+                sprintf(buf2, "diff_r: %ld\n", micros[0] / 72 + 1000 - micros[1] / 72 + 1000 * ( millis[1] - millis[0] -1 )  );
+                //sprintf(buf2, "millis0: %ld micros0: %ld millis1: %ld micros1: %ld\n", millis[0], micros[0]/72, millis[1], micros[1]/72 );
+            }
+
+            CDC_Transmit_FS((uint8_t*) buf2, strlen(buf2));
+            */
 
             idle_counter = 0;
 
