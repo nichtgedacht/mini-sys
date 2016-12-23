@@ -34,11 +34,29 @@ Hints for usage:
 * If all code is used, now it fits only to the STM32F103CBT6 (maple mini clone) with 128k flash. You have to edit STM32F103C8Ty_FLASH.ld (64K -> 128K) after having recreated the project with CubeMX
 
 Bootloader:
-If using my bootloader (nichtgedacht/bootloader) one have to edit 2 files:
+
+If using my bootloader https://github.com/nichtgedacht/bootloader one have to edit 2 files:
 * edit linker script STM32F103C8Tx_FLASH.ld. Change flash origin and length to: FLASH (rx) : ORIGIN = 0x8004000, LENGTH = 112K
 * edit Drivers/CMSIS/Device/ST/STM32F1xx/Source/Templates/system_stm32f1xx.c. Change VECT_TAB_OFFSET to VECT_TAB_OFFSET 0x4000
 
 This way the application will be linked properly for an offset of 16k in flash and the addresses of the interrupt vectors are correct.  
+
+Configurator101:
+
+Configuration of the Quadrocopter can be done with my configuaration tool https://github.com/nichtgedacht/configurator101
+
+Screenshots:
+
+![alt tag](https://cloud.githubusercontent.com/assets/18667858/21460292/ecc843fa-c946-11e6-9419-7a5d06d951ac.png)
+
+![alt tag](https://cloud.githubusercontent.com/assets/18667858/21460306/095ccb76-c947-11e6-98f6-e21c37afe99f.png)
+
+![alt tag](https://cloud.githubusercontent.com/assets/18667858/21460313/16fb87f4-c947-11e6-87fa-bab87ab2c2de.png)
+
+![alt tag](https://cloud.githubusercontent.com/assets/18667858/21460321/2a26ba24-c947-11e6-881b-8e0336a35119.png)
+
+![alt tag](https://cloud.githubusercontent.com/assets/18667858/21460331/3d4ccd1e-c947-11e6-8d17-af2b464c69ec.png)
+ 
 
 Pictures:
 
