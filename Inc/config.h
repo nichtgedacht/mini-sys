@@ -3,13 +3,17 @@
 
 #include "stm32f1xx_hal.h"
 #include "string.h"
+#include "stm32_adafruit_lcd.h"
+#include "servo.h"
+#include "usbd_cdc_if.h"
+#include "usb_device.h"
+#include "rc.h"
+#include "mpu9250.h"
 
 //#define HAVE_DISPLAY
 //#define HAVE_SD_CARD
-#define USE_SRXL
-//#define USE_SBUS
 
-// enum { roll, nick, gier }; // all axis index
+enum { roll, nick, gier }; // all axis index
 enum { SBUS, SRXL }; // receiver index
 enum { RKp, RKi, RKd, NKp, NKi, NKd, GKp, GKi, GKd }; // pid index
 enum { CW = 1, CCW = -1};
@@ -109,6 +113,14 @@ extern float scale_roll;
 
 extern settings *p_settings;
 
+extern uint8_t rcv_settings;
+extern uint8_t snd_settings;
+extern uint8_t snd_channels;
+extern uint8_t snd_live;
+extern uint8_t rcv_motors;
+extern uint8_t live_receipt;
+extern uint8_t channels_receipt;
+
 // example:
 // cannels[rc_thrust];
 
@@ -118,5 +130,13 @@ void check_settings_page(void);
 void analyze_settings(void);
 void load_default_settings(void);
 void start_bootloader (void);
+void config_state_switch(const char *cmd);
+void receive_settings(void);
+void send_settings(uint8_t* flash);
+void send_channels(void);
+void send_live(void);
+#ifdef HAVE_DISPLAY
+void draw_program_pid_values(uint8_t line, float value, char* format, uint8_t index, uint8_t offset);
+#endif
 
 #endif

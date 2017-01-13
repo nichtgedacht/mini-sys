@@ -386,6 +386,27 @@ void BSP_LCD_DisplayStringAtLine(uint16_t Line, uint8_t *ptr)
 }
 
 /**
+ * @brief  Displays a string on the LCD and clears line before string is displayed
+ * @param  Line: Line where to display the string
+ *          This parameter can be one of the following values:
+ *            @arg  0..19: if the Current fonts is Font8
+ *            @arg  0..12: if the Current fonts is Font12
+ *            @arg  0...9: if the Current fonts is Font16
+ *            @arg  0...7: if the Current fonts is Font20
+ *            @arg  0...5: if the Current fonts is Font24
+ * @param  ptr: Pointer to string to display on LCD
+ * @param  Mode: LEFT_MODE, CENTER_MODE or RIGHT_MODE
+ * @param  Color: color
+ * @retval None
+ */
+void BSP_LCD_DisplayCLRStringAtLine(uint16_t Line, uint8_t *ptr, Line_ModeTypdef Mode, uint16_t Color)
+{
+    BSP_LCD_ClearStringLine(Line);
+    BSP_LCD_SetTextColor(Color);
+    BSP_LCD_DisplayStringAt(0, LINE(Line), (uint8_t *) ptr, Mode);
+}
+
+/**
  * @brief  Draws a pixel on LCD.
  * @param  Xpos: X position
  * @param  Ypos: Y position

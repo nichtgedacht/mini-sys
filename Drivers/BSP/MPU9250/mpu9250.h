@@ -13,6 +13,7 @@ enum { x, y, z };
 
 extern float gy[3];
 extern float ac[3];
+extern float ang[3];
 
 extern float q0, q1, q2, q3;           // quaternion of sensor frame relative to auxiliary frame
 

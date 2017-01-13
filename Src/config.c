@@ -36,33 +36,33 @@
  */
 
 /*
-    uint8_t magic;
-    uint8_t pad1;
-    uint8_t pad2;
-    uint8_t pad3;
-    float pidvars[9];
-    float l_pidvars[9];
-    float rate[3];
-    motor motor_1;
-    motor motor_2;
-    motor motor_3;
-    motor motor_4;
-    matrix sensor_orient;
-    uint8_t pad4;
-    uint8_t pad5;
-    uint8_t pad6;
-    float aspect_ratio;
-    rc_channel rc_func[13];
-    uint8_t pad7;
-    rc_channel rc_ch[13];
-    uint8_t pad8;
-    uint8_t receiver;
+ uint8_t magic;
+ uint8_t pad1;
+ uint8_t pad2;
+ uint8_t pad3;
+ float pidvars[9];
+ float l_pidvars[9];
+ float rate[3];
+ motor motor_1;
+ motor motor_2;
+ motor motor_3;
+ motor motor_4;
+ matrix sensor_orient;
+ uint8_t pad4;
+ uint8_t pad5;
+ uint8_t pad6;
+ float aspect_ratio;
+ rc_channel rc_func[13];
+ uint8_t pad7;
+ rc_channel rc_ch[13];
+ uint8_t pad8;
+ uint8_t receiver;
 
  */
 
 // see structure above
-const settings default_settings =
-{       0xdb,   // magic
+const settings default_settings = {
+        0xdb,   // magic
         0xff,   // padding
         0xff,   // padding
         0xff,   // padding
@@ -74,9 +74,9 @@ const settings default_settings =
         { CW, 3 },   // motor_3
         { CCW, 4 },  // motor_4
         { // Front   Left   Top   //sensor_orient
-            { 1,      0,     0 }, // x
-            { 0,      1,     0 }, // y
-            { 0,      0,     1 }  // z
+        {     1,      0,     0 }, // x
+        {     0,      1,     0 }, // y
+        {     0,      0,     1 }  // z
         },
         0xff,  // padding
         0xff,  // padding
@@ -131,6 +131,14 @@ float scale_roll;
 settings *p_settings;
 
 uint8_t receiver;
+
+uint8_t rcv_settings = 0;
+uint8_t snd_settings = 0;
+uint8_t snd_channels = 0;
+uint8_t snd_live = 0;
+uint8_t rcv_motors = 0;
+uint8_t live_receipt = 0;
+uint8_t channels_receipt = 0;
 
 void check_settings_page(void)
 {
@@ -254,7 +262,368 @@ void load_default_settings(void)
     }
 }
 
-void start_bootloader (void)
+void start_bootloader(void)
 {
     HAL_NVIC_SystemReset();
 }
+
+void config_state_switch(const char *cmd)
+{
+    char buf[10];
+
+    if (strcmp(cmd, "reboot") == 0)
+    {
+        start_bootloader();
+    }
+    else if (strcmp(cmd, "bootloader") == 0)
+    {
+        //setting flag in flash
+        //so reborn as bootloader we can know that we should not start this live immediately again
+        // write string "DFU" (4 bytes incl. trailing \0) to last 32 bit wide space of flash page
+        write_flash_vars((uint32_t*) "DFU", 1, 1020);
+        start_bootloader();
+    }
+    else if (strcmp(cmd, "push_settings") == 0)
+    {
+        rcv_settings = 1;
+
+        snd_live = 0;
+        snd_channels = 0;
+        rcv_motors = 0;
+
+        CDC_Reset_Receive();
+
+        HAL_Delay(100);
+
+        sprintf(buf, "ok_push\n");
+        CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
+
+#ifdef HAVE_DISPLAY
+        sprintf(buf, "XXXXXXXXXX");
+        BSP_LCD_DisplayCLRStringAtLine(10, (uint8_t *) buf, LEFT_MODE, LCD_COLOR_RED);
+#endif
+
+    }                                        // request for sending settings received
+    else if (strcmp(cmd, "pull_settings") == 0)
+    {
+        snd_settings = 1;
+
+        snd_live = 0;
+        snd_channels = 0;
+        rcv_motors = 0;
+
+        CDC_Reset_Receive();
+
+        read_flash_vars((uint32_t *) flash_buf, 256, 0);
+#ifdef HAVE_DISPLAY
+        sprintf(buf, "XXXXXXXXXX");
+        BSP_LCD_DisplayCLRStringAtLine(11, (uint8_t *) buf, LEFT_MODE, LCD_COLOR_RED);
+#endif
+
+    }
+    else if (strcmp(cmd, "load_defaults") == 0)
+    {
+        load_default_settings();
+
+        CDC_Reset_Receive();
+
+        //HAL_NVIC_SystemReset(); // shall we reboot right now?
+    }
+    /*
+     else if (strcmp(cmd, "suspend") == 0)
+     {
+     snd_live = 0;
+     snd_channels = 0;
+     rcv_motors = 0;
+
+     sprintf(buf2, "ok_suspend\n");
+     CDC_Transmit_FS((uint8_t*) buf2, strlen(buf2));
+
+     CDC_Reset_Receive();
+
+     }
+     */
+    else if (strcmp(cmd, "fw_tab") == 0)
+    {
+        snd_live = 0;
+        snd_channels = 0;
+        rcv_motors = 0;
+
+        CDC_Reset_Receive();
+
+#ifdef HAVE_DISPLAY
+        sprintf(buf, "Firmware");
+        BSP_LCD_DisplayCLRStringAtLine(0, (uint8_t *) buf, CENTER_MODE, LCD_COLOR_RED);
+#endif
+    }
+    else if (strcmp(cmd, "config_tab") == 0)
+    {
+        snd_live = 0;
+        snd_channels = 1;
+        channels_receipt = 1;
+        rcv_motors = 0;
+
+        CDC_Reset_Receive();
+
+#ifdef HAVE_DISPLAY
+        sprintf(buf, "Configuration");
+        BSP_LCD_DisplayCLRStringAtLine(0, (uint8_t *) buf, CENTER_MODE, LCD_COLOR_RED);
+#endif
+    }
+    else if (strcmp(cmd, "motors_tab") == 0)
+    {
+        snd_live = 0;
+        snd_channels = 0;
+        rcv_motors = 1;
+
+        CDC_Reset_Receive();
+
+#ifdef HAVE_DISPLAY
+        sprintf(buf, "Motor Test");
+        BSP_LCD_DisplayCLRStringAtLine(0, (uint8_t *) buf, CENTER_MODE, LCD_COLOR_RED);
+#endif
+    }
+    else if (strcmp(cmd, "flight_tab") == 0)
+    {
+        snd_live = 0;
+        snd_channels = 0;
+        rcv_motors = 0;
+
+        CDC_Reset_Receive();
+
+#ifdef HAVE_DISPLAY
+        sprintf(buf, "Flight Setup");
+        BSP_LCD_DisplayCLRStringAtLine(0, (uint8_t *) buf, CENTER_MODE, LCD_COLOR_RED);
+#endif
+    }
+    else if (strcmp(cmd, "live_tab") == 0)
+    {
+        snd_live = 1;
+        snd_channels = 0;
+        rcv_motors = 0;
+        live_receipt = 1;
+
+        CDC_Reset_Receive();
+
+#ifdef HAVE_DISPLAY
+        sprintf(buf, "Live Plots");
+        BSP_LCD_Clear(LCD_COLOR_BLACK);
+        BSP_LCD_DisplayCLRStringAtLine(0, (uint8_t *) buf, CENTER_MODE, LCD_COLOR_RED);
+#endif
+    }
+    else if (strcmp(cmd, "live_receipt") == 0)
+    {
+        live_receipt = 1;
+
+        CDC_Reset_Receive();
+    }
+    else if (strcmp(cmd, "channels_receipt") == 0)
+    {
+        channels_receipt = 1;
+
+        CDC_Reset_Receive();
+    }
+    else if (rcv_motors == 1)
+    {
+        servos[motor1_tim_ch] = atoi(strtok((char *) cmd, ","));
+        servos[motor2_tim_ch] = atoi(strtok(NULL, ","));
+        servos[motor3_tim_ch] = atoi(strtok(NULL, ","));
+        servos[motor4_tim_ch] = atoi(strtok(NULL, ","));
+
+        sprintf(buf, "motors_receipt\n");
+        CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
+
+        CDC_Reset_Receive();
+    }
+    else // recover from broken input
+    {
+        CDC_Reset_Receive();
+    }
+}
+
+void receive_settings(void)
+{
+    char buf[10];
+
+    if (cdc_received_tot < 1024)
+    {
+        cdc_received = 0;
+        USBD_CDC_ReceivePacket(&hUsbDeviceFS);
+    }
+    else // 1k received
+    {
+#ifdef HAVE_DISPLAY
+        sprintf(buf, "%d", cdc_received_tot);
+        BSP_LCD_DisplayCLRStringAtLine(10, (uint8_t *) buf, LEFT_MODE, LCD_COLOR_GREEN);
+#endif
+
+        rcv_settings = 0;
+
+        CDC_Reset_Receive();
+
+        p_settings = (settings *) received_data;
+
+        if (erase_flash_page() != HAL_OK)
+        {
+            Error_Handler();
+        }
+        else
+        {
+            if (p_settings->magic == 0xdb)
+            {
+                if (write_flash_vars((uint32_t*) received_data, 256, 0) != HAL_OK)
+                {
+                    Error_Handler();
+                }
+                else
+                {
+                    sprintf(buf, "settings_rcvd\n");
+                    CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
+                }
+            }
+            else
+            {
+                Error_Handler();
+            }
+        }
+    }
+}
+
+void send_settings(uint8_t* flash)
+{
+    char buf[10];
+    uint8_t res;
+
+    res = CDC_Transmit_FS(flash, 1024);
+
+#ifdef HAVE_DISPLAY
+    sprintf(buf, "%d", res);
+    BSP_LCD_DisplayCLRStringAtLine(11, (uint8_t *) buf, LEFT_MODE, LCD_COLOR_GREEN);
+#endif
+
+    if (res != USBD_BUSY)
+    {
+        snd_settings = 0;
+    }
+}
+
+void send_channels(void)
+{
+    char buf[100];
+
+    sprintf(buf, "%d %d %d %d %d %d %d %d %d %d %d %d\n", channels[rc_thrust], channels[rc_roll], channels[rc_nick],
+            channels[rc_gier], channels[rc_arm], channels[rc_mode], channels[rc_beep], channels[rc_prog],
+            channels[rc_var], channels[rc_aux1], channels[rc_aux2], channels[rc_aux3]);
+
+    channels_receipt = 0;
+
+    CDC_Transmit_FS((uint8_t*) buf, strlen((const char*) buf));
+}
+
+void send_live(void)
+{
+    char buf[100];
+
+    sprintf(buf, "%1.6f %1.6f %1.6f %4.3f %4.3f %4.3f %1.6f %1.6f %1.6f\n", ac[se_roll], ac[se_nick], ac[se_gier],
+            gy[se_roll], gy[se_nick], gy[se_gier], ang[roll], ang[nick], ang[gier]);
+
+    CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
+    live_receipt = 0;
+}
+
+#ifdef HAVE_DISPLAY
+/**
+ *  @brief Shows PID value, highlight selected line, writes new value on selected line according RC
+ *  @param Number of line, PID value of this line, format string, select index, offset line to index
+ *  @retval none
+ */
+void draw_program_pid_values(uint8_t line, float value, char* format, uint8_t index, uint8_t offset)
+{
+    char buf[20];
+
+    /*
+     Currently used functions/names to channel mapping on my DC16:
+     1 (channels[0]) f4 (Thrust)
+     2 (channels[1]) f1 (Roll)
+     3 (channels[2]) f2 (Nick) // I prefer the german word since I fly helicopters back in the eighties
+     4 (channels[3]) f3 (Gier) // I prefer the german word ...
+     5 (channels[4]) sd (Arm)            # two position switch
+     6 (channels[5]  sj (Mode)           # three position switch  Attitude Hold / Level Hold
+     7 (channels[6]  sa (Beeper)         # two position momentary switch
+     8 (channels[7]  sc (Program)        # three position switch
+     9 (channels[8]  f8 (Variable)       # knob proportinal
+     */
+
+    // if indexer points to current line and we are in program mode ( channels[rc_prog] middle )
+    // then the new value adjustable by variable knob (channels[rc_var]) is shown
+    if ((index == line - offset) && (channels[rc_prog] > 1400) && (channels[rc_prog] < 2700))
+    {
+        switch (index)
+        {
+        case 0: //RKp
+            value = (float) channels[rc_var] / 4000.0f;
+            //value = (float) channels[rc_var] / 8000.0f;
+            break;
+
+        case 1: //RKi
+            value = (float) channels[rc_var] / 4000.0f;
+            //value = (float) channels[rc_var] / 2000.0f;
+            break;
+
+        case 2: //RKd
+            value = (float) channels[rc_var] / 50000.0f;
+            //value = (float) channels[rc_var] / 200000.0f;
+            break;
+
+        case 3: //NKp
+            value = (float) channels[rc_var] / 4000.0f;
+            //value = (float) channels[rc_var] / 8000.0f;
+            break;
+
+        case 4: //NKi
+            value = (float) channels[rc_var] / 4000.0f;
+            //value = (float) channels[rc_var] / 2000.0f;
+            break;
+
+        case 5: //NKd
+            value = (float) channels[rc_var] / 50000.0f;
+            //value = (float) channels[rc_var] / 200000.0f;
+            break;
+
+        case 6: //GKp
+            value = (float) channels[rc_var] / 2000.0f;
+            break;
+
+        case 7: //GKi
+            value = (float) channels[rc_var] / 2000.0f;
+            break;
+
+        case 8: //GKd
+            value = (float) channels[rc_var] / 200000.0f;
+            break;
+        }
+
+        // if beeper switch is switched to lower position the new value will be written immediately
+        // and continuously to ram (pid_vars[x]) while adjusting the value with the knob
+        if (channels[rc_beep] > 2700)
+        {
+            if (channels[rc_mode] < 1400)
+            {
+                pid_vars[index] = value;
+            }
+            else
+            {
+                l_pid_vars[index] = value;
+            }
+        }
+    }
+
+    BSP_LCD_SetTextColor(index == line - offset ? LCD_COLOR_BLUE : LCD_COLOR_BLACK);
+    BSP_LCD_SetBackColor(index == line - offset ? LCD_COLOR_BLUE : LCD_COLOR_BLACK);
+    BSP_LCD_FillRect(80, line * 12, BSP_LCD_GetXSize() - 80, 12);
+    sprintf(buf, format, value);
+    BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
+    BSP_LCD_DisplayStringAtLine(line, (uint8_t *) buf);
+}
+#endif
+

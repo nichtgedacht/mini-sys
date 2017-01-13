@@ -23,6 +23,7 @@ float acc_divider;
 float gyro_divider;
 float gy[3];
 float ac[3];
+float ang[3];
 
 /**
  * @brief  Initializes the MPU communication.

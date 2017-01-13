@@ -4,35 +4,47 @@
  * Description        : Main program body
  ******************************************************************************
  *
- * COPYRIGHT(c) 2016 STMicroelectronics
+ * Copyright (c) 2017 STMicroelectronics International N.V.
+ * All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without modification,
- * are permitted provided that the following conditions are met:
- *   1. Redistributions of source code must retain the above copyright notice,
- *      this list of conditions and the following disclaimer.
- *   2. Redistributions in binary form must reproduce the above copyright notice,
- *      this list of conditions and the following disclaimer in the documentation
- *      and/or other materials provided with the distribution.
- *   3. Neither the name of STMicroelectronics nor the names of its contributors
- *      may be used to endorse or promote products derived from this software
- *      without specific prior written permission.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted, provided that the following conditions are met:
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * 1. Redistribution of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ * 3. Neither the name of STMicroelectronics nor the names of other
+ *    contributors to this software may be used to endorse or promote products
+ *    derived from this software without specific written permission.
+ * 4. This software, including modifications and/or derivative works of this
+ *    software, must execute solely and exclusively on microcontroller or
+ *    microprocessor devices manufactured by or for STMicroelectronics.
+ * 5. Redistribution and use of this software other than as permitted under
+ *    this license is void and will automatically terminate your rights under
+ *    this license.
+ *
+ * THIS SOFTWARE IS PROVIDED BY STMICROELECTRONICS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS, IMPLIED OR STATUTORY WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+ * PARTICULAR PURPOSE AND NON-INFRINGEMENT OF THIRD PARTY INTELLECTUAL PROPERTY
+ * RIGHTS ARE DISCLAIMED TO THE FULLEST EXTENT PERMITTED BY LAW. IN NO EVENT
+ * SHALL STMICROELECTRONICS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
+ * OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+ * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+ * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  ******************************************************************************
  */
 /* Includes ------------------------------------------------------------------*/
+#include "main.h"
 #include "stm32f1xx_hal.h"
 #include "adc.h"
+#include "dma.h"
 #include "fatfs.h"
 #include "rtc.h"
 #include "spi.h"
@@ -42,7 +54,6 @@
 #include "gpio.h"
 
 /* USER CODE BEGIN Includes */
-
 #include "stm32_adafruit_lcd.h"
 #include "stm32_adafruit_sd.h"
 #include "usbd_cdc_if.h"
@@ -55,8 +66,7 @@
 #include "controller.h"
 #include "flash.h"
 #include "config.h"
-#include "usbd_cdc_if.h"
-
+#include "led.h"
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -64,10 +74,9 @@
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 
-typedef void (*pFunction)(void);
-
 uint8_t counter = 0;
 uint32_t failsafe_counter = 100;
+uint32_t led_counter = 0;
 char* pDirectoryFiles[MAX_BMP_FILES];
 uint8_t res;
 uint16_t usb_res;
@@ -83,21 +92,13 @@ char buf2[100] =
 const uint8_t flash_top = 255;
 uint32_t free_flash;
 uint32_t tick, prev_tick, dt;
-float e_roll, e_nick, e_gier;
-int xp, yp;
+int xp, yp, zp;
 float vx = 0.0f, vy = 0.0f;
 HAL_StatusTypeDef hal_res;
 uint32_t idle_counter;
 float cp_pid_vars[9];
-uint8_t i;
+uint8_t i, armed = 0;
 uint8_t indexer = 0;
-uint8_t rcv_settings = 0;
-uint8_t snd_settings = 0;
-uint8_t snd_channels = 0;
-uint8_t snd_live = 0;
-uint8_t rcv_motors = 0;
-uint8_t live_receipt = 0;
-uint8_t channels_receipt = 0;
 uint32_t millis[2];
 uint32_t micros[2];
 
@@ -109,9 +110,6 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-#ifdef HAVE_DISPLAY
-void draw_program_pid_values(uint8_t line, float value, char* format, uint8_t index, uint8_t offset);
-#endif
 
 /* USER CODE END PFP */
 
@@ -136,16 +134,20 @@ int main(void)
 
     /* Initialize all configured peripherals */
     MX_GPIO_Init();
+    MX_DMA_Init();
     MX_ADC1_Init();
     MX_USB_DEVICE_Init();
     MX_SPI2_Init();
     MX_TIM2_Init();
+    MX_TIM3_Init();
 
     /* USER CODE BEGIN 2 */
 
 #ifdef HAVE_SD_CARD
     MX_FATFS_Init();
 #endif
+
+    led_set_rainbow(0, NR_COLORS, 64);
 
     // Reset USB on maple mine clone to let the PC host enumerate the device
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET);
@@ -224,6 +226,11 @@ int main(void)
             }
         }
     }
+
+    if (res == BSP_SD_OK)
+    {
+        TFT_DisplayImages(0, 0, "PICT1.BMP", buf);
+    }
 #endif
 
     // Start servo pulse generation
@@ -236,6 +243,8 @@ int main(void)
     // not to be enabled until BSP_MPU_GyroCalibration
     // Period elapsed callback sets flag PeriodElapsed
     __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_UPDATE);
+
+    HAL_TIM_PWM_Start_DMA(&htim3, TIM_CHANNEL_3, (uint32_t *) aCCValue_Buffer, NR_LEDS * 24 + 8);
 
     /* USER CODE END 2 */
 
@@ -250,7 +259,6 @@ int main(void)
         // reference probe
         //millis[0] = HAL_GetTick();
         //micros[0] = SysTick->VAL;
-
         if (PeriodElapsed == 1) // 200 Hz from servo timer
         {
             // max 8 us
@@ -264,7 +272,6 @@ int main(void)
             // max 9 us
             //millis[1] = HAL_GetTick();
             //micros[1] = SysTick->VAL;
-
 
             if (RC_RECEIVED == 1)
             {
@@ -284,21 +291,23 @@ int main(void)
             //micros[1] = SysTick->VAL;
 
             // use int values se_roll, se_nick, se_gier as index to map different orientations of the sensor
-            BSP_MPU_updateIMU(ac[se_roll] * se_roll_sign, ac[se_nick] * se_nick_sign, ac[se_gier] * se_gier_sign, gy[se_roll] * se_roll_sign,
-                    gy[se_nick] * se_nick_sign, gy[se_gier] * se_gier_sign, 5.0f); // dt 5ms
+            BSP_MPU_updateIMU(ac[se_roll] * se_roll_sign, ac[se_nick] * se_nick_sign, ac[se_gier] * se_gier_sign,
+                    gy[se_roll] * se_roll_sign, gy[se_nick] * se_nick_sign, gy[se_gier] * se_gier_sign, 5.0f); // dt 5ms
 
             // then it comes out here properly mapped because Quaternions already changed axises
-            BSP_MPU_getEuler(&e_roll, &e_nick, &e_gier);
+            BSP_MPU_getEuler(&ang[roll], &ang[nick], &ang[gier]);
 
             // max 325 us
             //millis[1] = HAL_GetTick();
             //micros[1] = SysTick->VAL;
 
             // armed only if arm switch on + not failsafe + not usb connected
+            //if (channels[rc_arm] > 2700 && failsafe_counter < 40) // uncommend for test performance while usb connected
             if (channels[rc_arm] > 2700 && failsafe_counter < 40 && hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED) // armed, flight mode
-            //if (channels[rc_arm] > 2700 && failsafe_counter < 40 ) // test performance while usb connected
             {
-                if ( channels[rc_mode] < 1400 )
+                armed = 1;
+
+                if (channels[rc_mode] < 1400)
                 {
                     // attitude hold mode
                     // full stick equals ~250 degrees per second with rate of 8 (2000 / 250)
@@ -322,8 +331,8 @@ int main(void)
                 {
                     // level hold mode
                     // full stick 45 degrees
-                    diffroll = e_roll * 2000.0f / (M_PI / 4.0f) - (float) channels[rc_roll] + MIDDLE_POS;
-                    diffnick = e_nick * 2000.0f / (M_PI / 4.0f) - (float) channels[rc_nick] + MIDDLE_POS;
+                    diffroll = ang[roll] * 2000.0f / (M_PI / 4.0f) - (float) channels[rc_roll] + MIDDLE_POS;
+                    diffnick = ang[nick] * 2000.0f / (M_PI / 4.0f) - (float) channels[rc_nick] + MIDDLE_POS;
 
                     roll_set = pid(x, scale_roll, diffroll, l_pid_vars[RKp], l_pid_vars[RKi], l_pid_vars[RKd], 5.0f);
                     nick_set = pid(y, scale_nick, diffnick, l_pid_vars[NKp], l_pid_vars[NKi], l_pid_vars[NKd], 5.0f);
@@ -356,7 +365,10 @@ int main(void)
             }
             else // not armed or fail save or USB connected, motor stop except if motor test running
             {
-                if ( rcv_motors == 0 || hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED )
+                armed = 0;
+
+                // stop motors even with motor test running if USB cable gets disconnected
+                if (rcv_motors == 0 || hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED)
                 {
                     halt_reset();
                 }
@@ -367,374 +379,65 @@ int main(void)
                 // message over VCP arrived. From config tool?
                 if (cdc_received == 1)
                 {
-                    // receiving 1k data for settings flash page
+                    // receiving 1k data for settings flash page in one or more iterations
                     if (rcv_settings == 1)
                     {
-                        if (cdc_received_tot < 1024)
-                        {
-                            cdc_received = 0;
-                            USBD_CDC_ReceivePacket(&hUsbDeviceFS);
-                        }
-                        else // 1k received
-                        {
-#ifdef HAVE_DISPLAY
-                            sprintf(buf, "%d", cdc_received_tot);
-                            BSP_LCD_ClearStringLine(10);
-                            BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
-                            BSP_LCD_DisplayStringAt(0, LINE(10), (uint8_t *) buf, LEFT_MODE);
-#endif
-
-                            rcv_settings = 0;
-
-                            cdc_received = 0;
-                            cdc_received_tot = 0;
-                            USBD_CDC_ReceivePacket(&hUsbDeviceFS);
-
-                            p_settings = (settings *) received_data;
-
-                            if (erase_flash_page() != HAL_OK)
-                            {
-                                Error_Handler();
-                            }
-                            else
-                            {
-                                if (p_settings->magic == 0xdb )
-                                {
-                                    if (write_flash_vars((uint32_t*) received_data, 256, 0) != HAL_OK)
-                                    {
-                                        Error_Handler();
-                                    }
-                                    else
-                                    {
-                                        sprintf(buf2, "settings_rcvd\n");
-                                        CDC_Transmit_FS((uint8_t*) buf2, strlen(buf2));
-                                    }
-                                }
-                                else
-                                {
-                                    Error_Handler();
-                                }
-                            }
-                        }
+                        receive_settings();
                     }
-                    else if (strcmp((const char *) received_data, (const char *) "reboot") == 0)
-                    {
-                        start_bootloader();
+                    else
+                    {   // read commands from config tool
+                        config_state_switch((const char *) received_data);
                     }
-                    else if (strcmp((const char *) received_data, (const char *) "bootloader") == 0)
-                    {
-                        //setting flag in flash
-                        //so reborn as bootloader we can know that we should not start this live immediately again
-                        // write string "DFU" (4 bytes incl. trailing \0) to last 32 bit wide space of flash page
-                        write_flash_vars((uint32_t*) "DFU", 1, 1020);
-                        start_bootloader();
-                    }
-                    else if (strcmp((const char *) received_data, (const char *) "push_settings") == 0)
-                    {
-                        rcv_settings = 1;
-
-                        // neu
-                        snd_live = 0;
-                        snd_channels = 0;
-                        rcv_motors = 0;
-                        //neu
-
-                        cdc_received_tot = 0;
-                        cdc_received = 0;
-                        USBD_CDC_ReceivePacket(&hUsbDeviceFS);
-
-                        HAL_Delay(100);
-
-                        sprintf(buf2, "ok_push\n");
-                        CDC_Transmit_FS((uint8_t*) buf2, strlen(buf2));
-
-#ifdef HAVE_DISPLAY
-                        sprintf(buf, "XXXXXXXXXX");
-                        BSP_LCD_ClearStringLine(10);
-                        BSP_LCD_SetTextColor(LCD_COLOR_RED);
-                        BSP_LCD_DisplayStringAt(0, LINE(10), (uint8_t *) buf, LEFT_MODE);
-#endif
-
-                    }                                        // request for sending settings received
-                    else if (strcmp((const char *) received_data, (const char *) "pull_settings") == 0)
-                    {
-                        snd_settings = 1;
-
-                        // neu
-                        snd_live = 0;
-                        snd_channels = 0;
-                        rcv_motors = 0;
-                        // neu
-
-                        cdc_received_tot = 0;
-                        cdc_received = 0;
-                        USBD_CDC_ReceivePacket(&hUsbDeviceFS);
-
-                        read_flash_vars((uint32_t *) flash_buf, 256, 0);
-
-#ifdef HAVE_DISPLAY
-                        sprintf(buf, "XXXXXXXXXX");
-                        BSP_LCD_ClearStringLine(11);
-                        BSP_LCD_SetTextColor(LCD_COLOR_RED);
-                        BSP_LCD_DisplayStringAt(0, LINE(11), (uint8_t *) buf, LEFT_MODE);
-#endif
-
-                    }
-                    else if (strcmp((const char *) received_data, (const char *) "load_defaults") == 0)
-                    {
-                        load_default_settings();
-
-                        cdc_received_tot = 0;
-                        cdc_received = 0;
-                        USBD_CDC_ReceivePacket(&hUsbDeviceFS);
-                        //HAL_NVIC_SystemReset();
-                    }
-                    /*
-                    else if (strcmp((const char *) received_data, (const char *) "suspend") == 0)
-                    {
-                        snd_live = 0;
-                        snd_channels = 0;
-                        rcv_motors = 0;
-
-                        sprintf(buf2, "ok_suspend\n");
-                        CDC_Transmit_FS((uint8_t*) buf2, strlen(buf2));
-
-                        cdc_received_tot = 0;
-                        cdc_received = 0;
-                        USBD_CDC_ReceivePacket(&hUsbDeviceFS);
-                    }
-                    */
-                    else if (strcmp((const char *) received_data, (const char *) "fw_tab") == 0)
-                    {
-                        snd_live = 0;
-                        snd_channels = 0;
-                        rcv_motors = 0;
-
-                        cdc_received_tot = 0;
-                        cdc_received = 0;
-                        USBD_CDC_ReceivePacket(&hUsbDeviceFS);
-
-#ifdef HAVE_DISPLAY
-                        sprintf(buf, "Firmware");
-                        BSP_LCD_ClearStringLine(0);
-                        BSP_LCD_SetTextColor(LCD_COLOR_RED);
-                        BSP_LCD_DisplayStringAt(0, LINE(0), (uint8_t *) buf, CENTER_MODE);
-#endif
-                    }
-                    else if (strcmp((const char *) received_data, (const char *) "config_tab") == 0)
-                    {
-                        snd_live = 0;
-                        snd_channels = 1;
-                        channels_receipt = 1;
-                        rcv_motors = 0;
-
-                        cdc_received_tot = 0;
-                        cdc_received = 0;
-                        USBD_CDC_ReceivePacket(&hUsbDeviceFS);
-
-#ifdef HAVE_DISPLAY
-                        sprintf(buf, "Configuration");
-                        BSP_LCD_ClearStringLine(0);
-                        BSP_LCD_SetTextColor(LCD_COLOR_RED);
-                        BSP_LCD_DisplayStringAt(0, LINE(0), (uint8_t *) buf, CENTER_MODE);
-#endif
-                    }
-                    else if (strcmp((const char *) received_data, (const char *) "motors_tab") == 0)
-                    {
-                        snd_live = 0;
-                        snd_channels = 0;
-                        rcv_motors = 1;
-
-                        cdc_received_tot = 0;
-                        cdc_received = 0;
-                        USBD_CDC_ReceivePacket(&hUsbDeviceFS);
-
-#ifdef HAVE_DISPLAY
-                        sprintf(buf, "Motor Test");
-                        BSP_LCD_ClearStringLine(0);
-                        BSP_LCD_SetTextColor(LCD_COLOR_RED);
-                        BSP_LCD_DisplayStringAt(0, LINE(0), (uint8_t *) buf, CENTER_MODE);
-#endif
-                    }
-                    else if (strcmp((const char *) received_data, (const char *) "flight_tab") == 0)
-                    {
-                        snd_live = 0;
-                        snd_channels = 0;
-                        rcv_motors = 0;
-
-                        cdc_received_tot = 0;
-                        cdc_received = 0;
-                        USBD_CDC_ReceivePacket(&hUsbDeviceFS);
-
-#ifdef HAVE_DISPLAY
-                        sprintf(buf, "Flight Setup");
-                        BSP_LCD_ClearStringLine(0);
-                        BSP_LCD_SetTextColor(LCD_COLOR_RED);
-                        BSP_LCD_DisplayStringAt(0, LINE(0), (uint8_t *) buf, CENTER_MODE);
-#endif
-                    }
-                    else if (strcmp((const char *) received_data, (const char *) "live_tab") == 0)
-                    {
-                        snd_live = 1;
-                        snd_channels = 0;
-                        rcv_motors = 0;
-                        live_receipt = 1;
-
-                        cdc_received_tot = 0;
-                        cdc_received = 0;
-                        USBD_CDC_ReceivePacket(&hUsbDeviceFS);
-
-#ifdef HAVE_DISPLAY
-                        sprintf(buf, "Live Plots");
-                        BSP_LCD_Clear(LCD_COLOR_BLACK);
-                        BSP_LCD_SetTextColor(LCD_COLOR_RED);
-                        BSP_LCD_DisplayStringAt(0, LINE(0), (uint8_t *) buf, CENTER_MODE);
-#endif
-                    }
-                    else if (strcmp((const char *) received_data, (const char *) "live_receipt") == 0)
-                    {
-                        cdc_received_tot = 0;
-                        cdc_received = 0;
-                        live_receipt = 1;
-                        USBD_CDC_ReceivePacket(&hUsbDeviceFS);
-
-                    }
-                    else if (strcmp((const char *) received_data, (const char *) "channels_receipt") == 0)
-                    {
-                        channels_receipt = 1;
-
-                        cdc_received_tot = 0;
-                        cdc_received = 0;
-                        USBD_CDC_ReceivePacket(&hUsbDeviceFS);
-                    }
-                    else if (rcv_motors == 1)
-                    {
-                        servos[motor1_tim_ch] = atoi( strtok((char *) received_data, ",") );
-                        servos[motor2_tim_ch] = atoi( strtok(NULL, ",") );
-                        servos[motor3_tim_ch] = atoi( strtok(NULL, ",") );
-                        servos[motor4_tim_ch] = atoi( strtok(NULL, ",") );
-
-                        sprintf(buf2, "motors_receipt\n");
-                        CDC_Transmit_FS((uint8_t*) buf2, strlen(buf2));
-
-                        cdc_received_tot = 0;
-                        cdc_received = 0;
-                        USBD_CDC_ReceivePacket(&hUsbDeviceFS);
-                    }
-                    else // recover from broken input
-                    {
-                        cdc_received_tot = 0;
-                        cdc_received = 0;
-                        USBD_CDC_ReceivePacket(&hUsbDeviceFS);
-                    }
-                } //cdc_received
+                }
 
                 // sending 1k data of settings flash page
                 if (snd_settings == 1)
                 {
                     HAL_Delay(300); // wait for live data on wire gets swallowed before send
-                    usb_res = CDC_Transmit_FS((uint8_t*) flash_buf, 1024);
 
-#ifdef HAVE_DISPLAY
-                    sprintf(buf, "%d", usb_res);
-                    BSP_LCD_ClearStringLine(11);
-                    BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
-                    BSP_LCD_DisplayStringAt(0, LINE(11), (uint8_t *) buf, LEFT_MODE);
-#endif
-
-                    if (usb_res != USBD_BUSY)
-                    {
-                        snd_settings = 0;
-                    }
+                    send_settings((uint8_t*) flash_buf);
                 }
-                else if (snd_channels == 1 && channels_receipt == 1 )  // sending channels
+                else if (snd_channels == 1 && channels_receipt == 1)  // sending channels
                 {
-                    sprintf(buf2, "%d %d %d %d %d %d %d %d %d %d %d %d\n", channels[rc_thrust], channels[rc_roll],
-                            channels[rc_nick], channels[rc_gier], channels[rc_arm], channels[rc_mode],
-                            channels[rc_beep], channels[rc_prog], channels[rc_var], channels[rc_aux1],
-                            channels[rc_aux2], channels[rc_aux3]);
-
-                    channels_receipt = 0;
-
-                    CDC_Transmit_FS((uint8_t*) buf2, strlen(buf2));
-
-                    //for display in processing
-                    //while not in flight mode must use dt instead 5.0f ms
-                    //sprintf(buf2, "%3.3f,%3.3f,%3.3f\n", e_gier,
-                    //                                     e_nick,
-                    //                                     e_roll);
+                    send_channels();
                 }
-                else if ( snd_live == 1 && live_receipt == 1)
+                else if (snd_live == 1 && live_receipt == 1)
                 {
-                    //sprintf(buf2, "%1.3f %1.3f %1.3f %4.3f %4.3f %4.3f\n",
-                    //        ac[se_roll], ac[se_nick], ac[se_gier],
-                    //        gy[se_roll], gy[se_nick], gy[se_gier] );
-
-                    //sprintf(buf2, "-1.000 -1.000 -1.000 -1000.000 -1000.000 -1000.000 -100.000 -100.000 -100.000\n");
-
-
-                    sprintf(buf2, "%1.6f %1.6f %1.6f %4.3f %4.3f %4.3f %1.6f %1.6f %1.6f\n",
-                            ac[se_roll], ac[se_nick], ac[se_gier],
-                            gy[se_roll], gy[se_nick], gy[se_gier],
-                            e_roll, e_nick, e_gier);
-
-                    CDC_Transmit_FS((uint8_t*) buf2, strlen(buf2));
-                    live_receipt = 0;
+                    send_live();
                 }
 
-                /*
-                if ( snd_live == 0 )
+                if (snd_live == 0)
                 {
-                    //free_ram = (0x20000000 + 1024 * 20) - (uint32_t) sbrk((int) 0);
+                    //free_ram = (0x20000000 + 1024 * 20) - (uint32_t) sbrk((int)0);
                     //sprintf(buf, "free: %ld", free_ram);
-                    //sprintf(buf, "ch6: %ld", channels[6]);
-                    sprintf(buf, "%d %d %d", servos[0], servos[1], servos[2]);
-                    BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-                    BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
-                    BSP_LCD_FillRect(0, 12 * 12, BSP_LCD_GetXSize(), 12);
-                    BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-                    BSP_LCD_DisplayStringAtLine(12, (uint8_t *) buf);
+                    //free_flash = (0x8000000 + 1024 * 128) - (uint32_t) &flash_top;
+                    //sprintf(buf, "free: %ld", free_flash);
+                    //BSP_LCD_DisplayCLRStringAtLine(12, (uint8_t *) buf, LEFT_MODE, LCD_COLOR_YELLOW);
                 }
-                */
+
             } // not armed
-
-            //tick = HAL_GetTick();
-            //dt = tick - prev_tick;
-            //prev_tick = tick;
-            //free_ram = (0x20000000 + 1024 * 20) - (uint32_t) sbrk((int)0);
-            //sprintf(buf, "free: %ld", free_ram);
-            //free_flash = (0x8000000 + 1024 * 128) - (uint32_t) &flash_top;
-            //sprintf(buf, "free: %ld bytes\n", free_flash);
-
-            //sprintf(buf, "%d %d %d %d %d %d\n", channels[rc_thrust], channels[rc_roll], channels[rc_nick],
-            //               channels[rc_gier] , channels[rc_arm], channels[rc_mode]);
-            //sprintf(buf, "dt: %ld\n", dt);
-            //sprintf(buf2, "%3.3f,%3.3f,%3.3f\n", yaw, pitch, roll);
-            //sprintf(buf, "%3.3f,%3.3f,%3.3f,%3.3f,%3.3f,%3.3f\n", ac[x], ac[y], ac[z], gy[x], gy[y], gy[z]);
-            //sprintf(buf, "%d %d %d %d\n", servos[0], servos[1], servos[2], servos[3]);
-            //sprintf(buf, "%3.3f %3.3f %3.3f %ld %ld\n", gy[x], gy[y], gy[z], dt, idle_counter);
-            //sprintf(buf, "HAL_UART_ERROR: %d\n", HAL_UART_ERROR);
-            //sprintf(buf, "thrust_set: %d channels[rc_thrust]: %d LOW_OFFS: %d\n", thrust_set, channels[rc_thrust], LOW_OFFS);
-            //sprintf(buf, "%ld\r\n", idle_counter);
 
             // do it in time pieces
             if (counter >= 4)
             {
                 counter = 0;
-#ifdef HAVE_DISPLAY
+
                 // stay in motor stop screen in any case if usb connected
-                if (channels[rc_arm] < 2700 || hUsbDeviceFS.dev_state == USBD_STATE_CONFIGURED) // motor stop screen
+                //if (channels[rc_arm] < 2700 || hUsbDeviceFS.dev_state == USBD_STATE_CONFIGURED)     // motor stop screen
                 //if (channels[rc_arm] < 2700) // test performance while usb connected
+                if (armed == 0)
                 {
                     // transition to motor stop clear screen
                     if (back_channels[rc_arm] - channels[rc_arm] > 1000)
                     {
+                        led_set_rainbow(0, NR_COLORS, 64);
+#ifdef HAVE_DISPLAY
                         BSP_LCD_SetRotation(0);
                         BSP_LCD_Clear(LCD_COLOR_BLACK);
+#endif
                         back_channels[rc_arm] = channels[rc_arm];
-
                     }
-
+#ifdef HAVE_DISPLAY
                     // transition of beeper momentary switch (channels[rc_beep]) detect
                     if (channels[rc_beep] - back_channels[rc_beep] > 1000)
                     {
@@ -782,46 +485,57 @@ int main(void)
 
                     back_channels[rc_beep] = channels[rc_beep];
 
-                    if ( snd_live == 0 ) // disable display while live data send
+                    if (snd_live == 0) // disable display while live data send
                     {
                         if (channels[rc_mode] < 1400)
                         {
                             // show and program by RC the current PID values
-                            draw_program_pid_values(1, pid_vars[RKp],  "Roll   Kp: %3.5f", indexer, 1);
-                            draw_program_pid_values(2, pid_vars[RKi],  "Roll   Ki: %3.5f", indexer, 1);
-                            draw_program_pid_values(3, pid_vars[RKd],  "Roll   Kd: %3.5f", indexer, 1);
-                            draw_program_pid_values(4, pid_vars[NKp],  "Nick   Kp: %3.5f", indexer, 1);
-                            draw_program_pid_values(5, pid_vars[NKi],  "Nick   Ki: %3.5f", indexer, 1);
-                            draw_program_pid_values(6, pid_vars[NKd],  "Nick   Kd: %3.5f", indexer, 1);
-                            draw_program_pid_values(7, pid_vars[GKp],  "Gier   Kp: %3.5f", indexer, 1);
-                            draw_program_pid_values(8, pid_vars[GKi],  "Gier   Ki: %3.5f", indexer, 1);
-                            draw_program_pid_values(9, pid_vars[GKd],  "Gier   Kd: %3.5f", indexer, 1);
+                            draw_program_pid_values(1, pid_vars[RKp], "Roll   Kp: %3.5f", indexer, 1);
+                            draw_program_pid_values(2, pid_vars[RKi], "Roll   Ki: %3.5f", indexer, 1);
+                            draw_program_pid_values(3, pid_vars[RKd], "Roll   Kd: %3.5f", indexer, 1);
+                            draw_program_pid_values(4, pid_vars[NKp], "Nick   Kp: %3.5f", indexer, 1);
+                            draw_program_pid_values(5, pid_vars[NKi], "Nick   Ki: %3.5f", indexer, 1);
+                            draw_program_pid_values(6, pid_vars[NKd], "Nick   Kd: %3.5f", indexer, 1);
+                            draw_program_pid_values(7, pid_vars[GKp], "Gier   Kp: %3.5f", indexer, 1);
+                            draw_program_pid_values(8, pid_vars[GKi], "Gier   Ki: %3.5f", indexer, 1);
+                            draw_program_pid_values(9, pid_vars[GKd], "Gier   Kd: %3.5f", indexer, 1);
                         }
                         else
                         {
                             // show and program by RC the current level flight PID values
-                            draw_program_pid_values(1, l_pid_vars[RKp],  "Roll l_Kp: %3.5f", indexer, 1);
-                            draw_program_pid_values(2, l_pid_vars[RKi],  "Roll l_Ki: %3.5f", indexer, 1);
-                            draw_program_pid_values(3, l_pid_vars[RKd],  "Roll l_Kd: %3.5f", indexer, 1);
-                            draw_program_pid_values(4, l_pid_vars[NKp],  "Nick l_Kp: %3.5f", indexer, 1);
-                            draw_program_pid_values(5, l_pid_vars[NKi],  "Nick l_Ki: %3.5f", indexer, 1);
-                            draw_program_pid_values(6, l_pid_vars[NKd],  "Nick l_Kd: %3.5f", indexer, 1);
-                            draw_program_pid_values(7, l_pid_vars[GKp],  "Gier l_Kp: %3.5f", indexer, 1);
-                            draw_program_pid_values(8, l_pid_vars[GKi],  "Gier l_Ki: %3.5f", indexer, 1);
-                            draw_program_pid_values(9, l_pid_vars[GKd],  "Gier l_Kd: %3.5f", indexer, 1);
+                            draw_program_pid_values(1, l_pid_vars[RKp], "Roll l_Kp: %3.5f", indexer, 1);
+                            draw_program_pid_values(2, l_pid_vars[RKi], "Roll l_Ki: %3.5f", indexer, 1);
+                            draw_program_pid_values(3, l_pid_vars[RKd], "Roll l_Kd: %3.5f", indexer, 1);
+                            draw_program_pid_values(4, l_pid_vars[NKp], "Nick l_Kp: %3.5f", indexer, 1);
+                            draw_program_pid_values(5, l_pid_vars[NKi], "Nick l_Ki: %3.5f", indexer, 1);
+                            draw_program_pid_values(6, l_pid_vars[NKd], "Nick l_Kd: %3.5f", indexer, 1);
+                            draw_program_pid_values(7, l_pid_vars[GKp], "Gier l_Kp: %3.5f", indexer, 1);
+                            draw_program_pid_values(8, l_pid_vars[GKi], "Gier l_Ki: %3.5f", indexer, 1);
+                            draw_program_pid_values(9, l_pid_vars[GKd], "Gier l_Kd: %3.5f", indexer, 1);
                         }
                     }
+#endif
                 }
                 else // armed, flight mode screen
                 {
-                    // transition to armed, flight mode, clear screen
+                    // transition to armed
                     if (channels[rc_arm] - back_channels[rc_arm] > 1000)
                     {
+                        if ( channels[rc_mode] < 1400 )
+                        {
+                            led_set_armed_acro(128);
+                        }
+                        else
+                        {
+                            led_set_armed_level_hold(128);
+                        }
+#ifdef HAVE_DISPLAY
                         BSP_LCD_SetRotation(3);
                         BSP_LCD_Clear(LCD_COLOR_BLACK);
+#endif
                         back_channels[rc_arm] = channels[rc_arm];
                     }
-
+#ifdef HAVE_DISPLAY
                     //########### water bubble ################################
 
                     BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
@@ -831,8 +545,8 @@ int main(void)
                     BSP_LCD_DrawHLine(75, 64, 11);
                     BSP_LCD_DrawVLine(80, 59, 11);
 
-                    vx = sinf(e_nick) * 300.0f;
-                    vy = sinf(e_roll) * 300.0f;
+                    vx = sinf(ang[nick]) * 300.0f;
+                    vy = sinf(ang[roll]) * 300.0f;
 
                     xp = rintf(vx) + 80;
                     yp = rintf(vy) + 64;
@@ -862,8 +576,8 @@ int main(void)
                     BSP_LCD_DrawCircle(xp, yp, 5);
 
                     //############ end water bubble ###########################
-                }
 #endif
+                }
             }
 
             if (counter == 3)
@@ -879,7 +593,7 @@ int main(void)
                 }
 
                 // beeper not enabled if USB is connected
-                if ( ( volt1 < 10.5f || channels[rc_beep] > 1400 ) && hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED )
+                if ((volt1 < 10.5f || channels[rc_beep] > 1400) && hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED)
                 {
                     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
                 }
@@ -897,7 +611,35 @@ int main(void)
 
             if (counter == 1)
             {
+                led_counter++;
 
+                if (led_counter == 2)
+                {
+                    led_counter = 0;
+
+                    // rotate led colors unless armed light
+                    if (armed == 0)
+                    {
+                        // rotate colors, right is moving inner to outer
+                        led_rotate_right(0, NR_COLORS - 1);
+                        //led_rotate_left(0, NR_COLORS - 1);
+                    }
+                    else
+                    {
+                        // transition to level hold mode while armed
+                        if (channels[rc_mode] - back_channels[rc_mode] > 1000 )
+                        {
+                            led_set_armed_level_hold(128);
+                            back_channels[rc_mode] = channels[rc_mode];
+                        }
+                        // transition to acro mode while armed, only low position of 3 step switch is acro
+                        if (back_channels[rc_mode] - channels[rc_mode] > 1000 &&  channels[rc_mode] < 1400 )
+                        {
+                            led_set_armed_acro(128);
+                            back_channels[rc_mode] = channels[rc_mode];
+                        }
+                    }
+                }
             }
 
             //sprintf(buf2, "%ld\n", idle_counter);
@@ -908,18 +650,22 @@ int main(void)
             //micros[1] = SysTick->VAL;
 
             /*
-            if ( micros[0] > micros[1] )
-            {
-                sprintf(buf2, "diff: %ld\n", ( micros[0] - micros[1] ) / 72 + 1000 * ( millis[1] - millis[0] ) );
-                //sprintf(buf2, "millis0: %ld micros0: %ld millis1: %ld micros1: %ld\n", millis[0], micros[0]/72, millis[1], micros[1]/72 );
-            }
-            else // systick counter rounded between probes
-            {
-                sprintf(buf2, "diff_r: %ld\n", micros[0] / 72 + 1000 - micros[1] / 72 + 1000 * ( millis[1] - millis[0] -1 )  );
-                //sprintf(buf2, "millis0: %ld micros0: %ld millis1: %ld micros1: %ld\n", millis[0], micros[0]/72, millis[1], micros[1]/72 );
-            }
+             if ( micros[0] > micros[1] )
+             {
+             sprintf(buf2, "diff: %ld\n", ( micros[0] - micros[1] ) / 72 + 1000 * ( millis[1] - millis[0] ) );
+             //sprintf(buf2, "millis0: %ld micros0: %ld millis1: %ld micros1: %ld\n", millis[0], micros[0]/72, millis[1], micros[1]/72 );
+             }
+             else // systick counter rounded between probes
+             {
+             sprintf(buf2, "diff_r: %ld\n", micros[0] / 72 + 1000 - micros[1] / 72 + 1000 * ( millis[1] - millis[0] -1 )  );
+             //sprintf(buf2, "millis0: %ld micros0: %ld millis1: %ld micros1: %ld\n", millis[0], micros[0]/72, millis[1], micros[1]/72 );
+             }
 
-            CDC_Transmit_FS((uint8_t*) buf2, strlen(buf2));
+             CDC_Transmit_FS((uint8_t*) buf2, strlen(buf2));
+
+             // read on PC:
+             // stty "1:0:18b2:0:3:1c:7f:15:4:5:1:0:11:13:1a:0:12:f:17:16:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0" -F /dev/ttyACM0
+             // cat /dev/ttyACM0
             */
 
             idle_counter = 0;
@@ -946,9 +692,12 @@ void SystemClock_Config(void)
     RCC_ClkInitTypeDef RCC_ClkInitStruct;
     RCC_PeriphCLKInitTypeDef PeriphClkInit;
 
+    /**Initializes the CPU, AHB and APB busses clocks 
+     */
     RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI | RCC_OSCILLATORTYPE_HSE;
     RCC_OscInitStruct.HSEState = RCC_HSE_ON;
     RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
+    RCC_OscInitStruct.HSIState = RCC_HSI_ON;
     RCC_OscInitStruct.LSIState = RCC_LSI_ON;
     RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
     RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
@@ -958,11 +707,14 @@ void SystemClock_Config(void)
         Error_Handler();
     }
 
+    /**Initializes the CPU, AHB and APB busses clocks 
+     */
     RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
     RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
     RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
     RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
     RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+
     if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
     {
         Error_Handler();
@@ -977,8 +729,12 @@ void SystemClock_Config(void)
         Error_Handler();
     }
 
+    /**Configure the Systick interrupt time 
+     */
     HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq() / 1000);
 
+    /**Configure the Systick 
+     */
     HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
 
     /* SysTick_IRQn interrupt configuration */
@@ -986,100 +742,6 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-
-#ifdef HAVE_DISPLAY
-/**
- *  @brief Shows PID value, highlight selected line, writes new value on selected line according RC
- *  @param Number of line, PID value of this line, format string, select index, offset line to index
- *  @retval none
- */
-void draw_program_pid_values(uint8_t line, float value, char* format, uint8_t index, uint8_t offset)
-{
-    /*
-     Currently used functions/names to channel mapping on my DC16:
-     1 (channels[0]) f4 (Thrust)
-     2 (channels[1]) f1 (Roll)
-     3 (channels[2]) f2 (Nick) // I prefer the german word since I fly helicopters back in the eighties
-     4 (channels[3]) f3 (Gier) // I prefer the german word ...
-     5 (channels[4]) sd (Arm)            # two position switch
-     6 (channels[5]  sj (Mode)           # three position switch  Attitude Hold / Level Hold
-     7 (channels[6]  sa (Beeper)         # two position momentary switch
-     8 (channels[7]  sc (Program)        # three position switch
-     9 (channels[8]  f8 (Variable)       # knob proportinal
-     */
-
-    // if indexer points to current line and we are in program mode ( channels[rc_prog] middle )
-    // then the new value adjustable by variable knob (channels[rc_var]) is shown
-    if ((indexer == line - offset) && (channels[rc_prog] > 1400) && (channels[rc_prog] < 2700))
-    {
-        switch (indexer)
-        {
-        case 0: //RKp
-            value = (float) channels[rc_var] / 4000.0f;
-            //value = (float) channels[rc_var] / 8000.0f;
-            break;
-
-        case 1: //RKi
-            value = (float) channels[rc_var] / 4000.0f;
-            //value = (float) channels[rc_var] / 2000.0f;
-            break;
-
-        case 2: //RKd
-            value = (float) channels[rc_var] / 50000.0f;
-            //value = (float) channels[rc_var] / 200000.0f;
-            break;
-
-        case 3:  //NKp
-            value = (float) channels[rc_var] / 4000.0f;
-            //value = (float) channels[rc_var] / 8000.0f;
-            break;
-
-        case 4:  //NKi
-            value = (float) channels[rc_var] / 4000.0f;
-            //value = (float) channels[rc_var] / 2000.0f;
-            break;
-
-        case 5:  //NKd
-            value = (float) channels[rc_var] / 50000.0f;
-            //value = (float) channels[rc_var] / 200000.0f;
-            break;
-
-        case 6:  //GKp
-            value = (float) channels[rc_var] / 2000.0f;
-            break;
-
-        case 7:  //GKi
-            value = (float) channels[rc_var] / 2000.0f;
-            break;
-
-        case 8:  //GKd
-            value = (float) channels[rc_var] / 200000.0f;
-            break;
-        }
-
-        // if beeper switch is switched to lower position the new value will be written immediately
-        // and continuously to ram (pid_vars[x]) while adjusting the value with the knob
-        if (channels[rc_beep] > 2700)
-        {
-            if (channels[rc_mode] < 1400)
-            {
-                pid_vars[indexer] = value;
-            }
-            else
-            {
-                l_pid_vars[indexer] = value;
-            }
-        }
-    }
-
-    BSP_LCD_SetTextColor(indexer == line - offset ? LCD_COLOR_BLUE : LCD_COLOR_BLACK);
-    BSP_LCD_SetBackColor(indexer == line - offset ? LCD_COLOR_BLUE : LCD_COLOR_BLACK);
-    BSP_LCD_FillRect(80, line * 12, BSP_LCD_GetXSize() - 80, 12);
-    sprintf(buf, format, value);
-    BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
-    BSP_LCD_DisplayStringAtLine(line, (uint8_t *) buf);
-}
-#endif
 
 /* USER CODE END 4 */
 
