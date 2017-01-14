@@ -269,7 +269,7 @@ void start_bootloader(void)
 
 void config_state_switch(const char *cmd)
 {
-    char buf[10];
+    char buf[20];
 
     if (strcmp(cmd, "reboot") == 0)
     {
@@ -443,7 +443,7 @@ void config_state_switch(const char *cmd)
 
 void receive_settings(void)
 {
-    char buf[10];
+    char buf[20];
 
     if (cdc_received_tot < 1024)
     {

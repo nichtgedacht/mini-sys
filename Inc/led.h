@@ -5,7 +5,7 @@
 #include "math.h"
 
 #define NR_LEDS 12
-#define NR_COLORS 24
+#define NR_COLORS 25
 
 enum
 {

@@ -179,7 +179,7 @@ int main(void)
     }
 
     // no sample rate divider (0+1), accel: lowpass filter bandwidth 460 Hz, Rate 1kHz, gyro: lowpass filter bandwidth 250 Hz
-    // gyro lpf, 3. parameter:
+    // gyro lpf, 2. parameter:
     // 0  250 Hz
     // 1  184 Hz
     // 2   92 Hz
@@ -233,7 +233,7 @@ int main(void)
     }
 #endif
 
-    // Start servo pulse generation
+    // start servo pulse generation
     // pulse finish callback updates length of next pulse
     HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_1);
     HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_2);
@@ -244,6 +244,7 @@ int main(void)
     // Period elapsed callback sets flag PeriodElapsed
     __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_UPDATE);
 
+    // start DMA transferring circular aCCValue_Buffer values to timer3 CCR
     HAL_TIM_PWM_Start_DMA(&htim3, TIM_CHANNEL_3, (uint32_t *) aCCValue_Buffer, NR_LEDS * 24 + 8);
 
     /* USER CODE END 2 */
@@ -422,9 +423,6 @@ int main(void)
             {
                 counter = 0;
 
-                // stay in motor stop screen in any case if usb connected
-                //if (channels[rc_arm] < 2700 || hUsbDeviceFS.dev_state == USBD_STATE_CONFIGURED)     // motor stop screen
-                //if (channels[rc_arm] < 2700) // test performance while usb connected
                 if (armed == 0)
                 {
                     // transition to motor stop clear screen
