@@ -76,7 +76,7 @@
 
 uint8_t counter = 0;
 uint32_t failsafe_counter = 100;
-uint32_t led_counter = 0;
+uint8_t led_blink_counter = 0;
 char* pDirectoryFiles[MAX_BMP_FILES];
 uint8_t res;
 uint16_t usb_res;
@@ -92,7 +92,7 @@ char buf2[100] =
 const uint8_t flash_top = 255;
 uint32_t free_flash;
 uint32_t tick, prev_tick, dt;
-int xp, yp, zp;
+int xp, yp;
 float vx = 0.0f, vy = 0.0f;
 HAL_StatusTypeDef hal_res;
 uint32_t idle_counter;
@@ -101,6 +101,7 @@ uint8_t i, armed = 0;
 uint8_t indexer = 0;
 uint32_t millis[2];
 uint32_t micros[2];
+uint8_t low_volt = 0;
 
 /* USER CODE END PV */
 
@@ -147,14 +148,16 @@ int main(void)
     MX_FATFS_Init();
 #endif
 
-    led_set_rainbow(0, NR_COLORS, 64);
+    led_set_rainbow(0, NR_COLORS, 128);
 
     // Reset USB on maple mine clone to let the PC host enumerate the device
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET);
     HAL_Delay(100);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET);
 
+    // read settings into flash_buf and validate data
     check_settings_page();
+    // feed variables from settings
     analyze_settings();
 
     if (p_settings->receiver == SBUS)
@@ -185,7 +188,7 @@ int main(void)
     // 2   92 Hz
     // 3   41 Hz
     BSP_MPU_Init(0, 2, 0);
-    HAL_Delay(4000); // wait for silence after batteries plug in
+    HAL_Delay(4000); // wait for silence after batteries plugged in
     BSP_MPU_GyroCalibration();
 
 #ifdef HAVE_DISPLAY
@@ -295,7 +298,7 @@ int main(void)
             BSP_MPU_updateIMU(ac[se_roll] * se_roll_sign, ac[se_nick] * se_nick_sign, ac[se_gier] * se_gier_sign,
                     gy[se_roll] * se_roll_sign, gy[se_nick] * se_nick_sign, gy[se_gier] * se_gier_sign, 5.0f); // dt 5ms
 
-            // then it comes out here properly mapped because Quaternions already changed axises
+            // then it comes out here properly mapped because Quaternions already changed axes
             BSP_MPU_getEuler(&ang[roll], &ang[nick], &ang[gier]);
 
             // max 325 us
@@ -303,12 +306,12 @@ int main(void)
             //micros[1] = SysTick->VAL;
 
             // armed only if arm switch on + not failsafe + not usb connected
-            //if (channels[rc_arm] > 2700 && failsafe_counter < 40) // uncommend for test performance while usb connected
-            if (channels[rc_arm] > 2700 && failsafe_counter < 40 && hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED) // armed, flight mode
+            //if (channels[rc_arm] > H_TRSH && failsafe_counter < 40) // uncommend for test performance while usb connected
+            if (channels[rc_arm] > H_TRSH && failsafe_counter < 40 && hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED) // armed, flight mode
             {
                 armed = 1;
 
-                if (channels[rc_mode] < 1400)
+                if (channels[rc_mode] < L_TRSH)
                 {
                     // attitude hold mode
                     // full stick equals ~250 degrees per second with rate of 8 (2000 / 250)
@@ -419,16 +422,17 @@ int main(void)
             } // not armed
 
             // do it in time pieces
-            if (counter >= 4)
+            // any of 8 slots will be repeated at 25Hz ( 40ms )
+            if (counter >= 8)
             {
                 counter = 0;
 
                 if (armed == 0)
                 {
                     // transition to motor stop clear screen
-                    if (back_channels[rc_arm] - channels[rc_arm] > 1000)
+                    if (back_channels[rc_arm] - channels[rc_arm] > TRANS_OFFS)
                     {
-                        led_set_rainbow(0, NR_COLORS, 64);
+                        led_set_rainbow(0, NR_COLORS, 128);
 #ifdef HAVE_DISPLAY
                         BSP_LCD_SetRotation(0);
                         BSP_LCD_Clear(LCD_COLOR_BLACK);
@@ -437,11 +441,11 @@ int main(void)
                     }
 #ifdef HAVE_DISPLAY
                     // transition of beeper momentary switch (channels[rc_beep]) detect
-                    if (channels[rc_beep] - back_channels[rc_beep] > 1000)
+                    if (channels[rc_beep] - back_channels[rc_beep] > TRANS_OFFS)
                     {
                         // if program switch (channels[rc_prog]) is off
                         // increment indexer
-                        if (channels[rc_prog] < 1400)
+                        if (channels[rc_prog] < L_TRSH)
                         {
                             if (indexer < 8)
                             {
@@ -455,7 +459,7 @@ int main(void)
                         }
                         // else if program switch (channels[rc_prog]) full on
                         // copy pid_vars from ram to upper flash page
-                        else if (channels[rc_prog] > 2700)
+                        else if (channels[rc_prog] > H_TRSH)
                         {
                             p_settings = (settings *) flash_buf;
                             read_flash_vars((uint32_t *) flash_buf, 256, 0);
@@ -483,9 +487,9 @@ int main(void)
 
                     back_channels[rc_beep] = channels[rc_beep];
 
-                    if (snd_live == 0) // disable display while live data send
+                    if (snd_live == 0) // disable while live data send
                     {
-                        if (channels[rc_mode] < 1400)
+                        if (channels[rc_mode] < L_TRSH)
                         {
                             // show and program by RC the current PID values
                             draw_program_pid_values(1, pid_vars[RKp], "Roll   Kp: %3.5f", indexer, 1);
@@ -517,15 +521,15 @@ int main(void)
                 else // armed, flight mode screen
                 {
                     // transition to armed
-                    if (channels[rc_arm] - back_channels[rc_arm] > 1000)
+                    if (channels[rc_arm] - back_channels[rc_arm] > TRANS_OFFS)
                     {
-                        if ( channels[rc_mode] < 1400 )
+                        if (channels[rc_mode] < L_TRSH)
                         {
-                            led_set_armed_acro(128);
+                            led_set_armed_acro(255);
                         }
                         else
                         {
-                            led_set_armed_level_hold(128);
+                            led_set_armed_level_hold(255);
                         }
 #ifdef HAVE_DISPLAY
                         BSP_LCD_SetRotation(3);
@@ -578,7 +582,7 @@ int main(void)
                 }
             }
 
-            if (counter == 3)
+            if (counter == 7)
             {
                 HAL_ADCEx_Calibration_Start(&hadc1);
                 if (HAL_ADC_Start(&hadc1) == HAL_OK)
@@ -591,53 +595,107 @@ int main(void)
                 }
 
                 // beeper not enabled if USB is connected
-                if ((volt1 < 10.5f || channels[rc_beep] > 1400) && hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED)
+                if ((volt1 < low_voltage || channels[rc_beep] > L_TRSH)
+                        && hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED)
                 {
                     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
+                    low_volt = 1;
                 }
-                else
+                else if (low_volt == 0)
                 {
                     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
                 }
             }
 
-            if (counter == 2)
+            if (counter == 6)
             {
                 HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_1);
                 HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
             }
 
-            if (counter == 1)
+            if (counter == 5)
             {
-                led_counter++;
-
-                if (led_counter == 2)
+                // rotate led colors unless armed light
+                if (armed == 0)
                 {
-                    led_counter = 0;
-
-                    // rotate led colors unless armed light
-                    if (armed == 0)
+                    // rotate colors, right is moving inner to outer
+                    if (low_volt == 0)
                     {
-                        // rotate colors, right is moving inner to outer
                         led_rotate_right(0, NR_COLORS - 1);
                         //led_rotate_left(0, NR_COLORS - 1);
                     }
-                    else
+                }
+                else
+                {
+                    // transition to level hold mode while armed
+                    if (channels[rc_mode] - back_channels[rc_mode] > TRANS_OFFS)
                     {
-                        // transition to level hold mode while armed
-                        if (channels[rc_mode] - back_channels[rc_mode] > 1000 )
+                        led_set_armed_level_hold(255);
+                        back_channels[rc_mode] = channels[rc_mode];
+                    }
+                    // transition to acro mode while armed, only low position of 3 step switch is acro
+                    if (back_channels[rc_mode] - channels[rc_mode] > TRANS_OFFS && channels[rc_mode] < L_TRSH)
+                    {
+                        led_set_armed_acro(255);
+                        back_channels[rc_mode] = channels[rc_mode];
+                    }
+                }
+            }
+
+            if (counter == 4)
+            {
+                led_blink_counter++;
+
+                if (led_blink_counter >= 2)
+                {
+                    led_blink_counter = 0;
+
+                    if (low_volt == 1)
+                    {
+                        led_set_off(0, NR_LEDS);
+                    }
+                }
+                else
+                {
+                    if (low_volt == 1)
+                    {
+                        if (armed == 0)
                         {
-                            led_set_armed_level_hold(128);
-                            back_channels[rc_mode] = channels[rc_mode];
+                            led_set_rainbow(0, NR_COLORS, 128);
                         }
-                        // transition to acro mode while armed, only low position of 3 step switch is acro
-                        if (back_channels[rc_mode] - channels[rc_mode] > 1000 &&  channels[rc_mode] < 1400 )
+                        else
                         {
-                            led_set_armed_acro(128);
-                            back_channels[rc_mode] = channels[rc_mode];
+                            if (channels[rc_mode] < L_TRSH)
+                            {
+                                led_set_armed_acro(255);
+                            }
+                            else
+                            {
+                                led_set_armed_level_hold(255);
+                            }
+                        }
+
+                        if (volt1 > (low_voltage + 1.0f))
+                        {
+                            low_volt = 0;
                         }
                     }
                 }
+            }
+
+            if (counter == 3)
+            {
+
+            }
+
+            if (counter == 2)
+            {
+
+            }
+
+            if (counter == 1)
+            {
+
             }
 
             //sprintf(buf2, "%ld\n", idle_counter);
@@ -664,7 +722,7 @@ int main(void)
              // read on PC:
              // stty "1:0:18b2:0:3:1c:7f:15:4:5:1:0:11:13:1a:0:12:f:17:16:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0" -F /dev/ttyACM0
              // cat /dev/ttyACM0
-            */
+             */
 
             idle_counter = 0;
 

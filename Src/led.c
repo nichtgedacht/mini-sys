@@ -172,3 +172,30 @@ void led_set_armed_level_hold(uint8_t brightness)
 
     led_trans_vals();
 }
+
+void led_set_off(uint8_t from, uint8_t to)
+{
+    uint8_t i, j;
+    uint16_t k;
+
+    k = 0;
+    for (i = from; i < to; i++) // each LED
+    {
+        for (j = 0; j < 3; j++) // 3 colors
+        {
+            aCCValue_Buffer[k++] = 30; // each bit
+            aCCValue_Buffer[k++] = 30;
+            aCCValue_Buffer[k++] = 30;
+            aCCValue_Buffer[k++] = 30;
+            aCCValue_Buffer[k++] = 30;
+            aCCValue_Buffer[k++] = 30;
+            aCCValue_Buffer[k++] = 30;
+            aCCValue_Buffer[k++] = 30;
+        }
+    }
+    for (i = 0; i < 8; i++)
+    {
+        aCCValue_Buffer[k++] = 0; // pulse pause
+    }
+}
+

@@ -2,40 +2,6 @@
 #include "flash.h"
 
 /*
- const float default_pid_vars[9] = { 0.24f, 1.5f, 0.004f, 0.24f, 1.5f, 0.004f, 0.5f, 1.5f, 0.001f };
- const float default_l_pid_vars[9] = { 0.1f, 0.03f, 0.02f, 0.1f, 0.03f, 0.02f, 1.0f, 1.5f, 0.001f };
- const float default_rate[] = {250.0f, 250.0f, 250.0f };
-
- const float default_r_scale = 1.0f;
- const float default_n_scale = 1.0f;
- const float default_g_scale = 1.0f;
-
- // ############################## roll   nick   gier  tim_ch
- //const motor default_motor_1 = { {-1.0f, -1.0f, -1.0f }, 0 };
- //const motor default_motor_2 = { {-1.0f,  1.0f,  1.0f }, 1 };
- //const motor default_motor_3 = { { 1.0f, -1.0f,  1.0f }, 2 };
- //const motor default_motor_4 = { { 1.0f,  1.0f, -1.0f }, 3 };
-
- //int8_t rotational_direction;
- //uint8_t tim_ch;
- const motor default_motor_1 = { CCW, 0 };
- const motor default_motor_2 = { CW, 1 };
- const motor default_motor_3 = { CW, 2 };
- const motor default_motor_4 = { CCW, 3 };
-
- const float default_aspect_ratio = 1.0f;
-
- //normal orientation
- const matrix default_sensor_orient = { // Front   Left   Top
- {     1,      0,     0  }, // x
- {     0,      1,     0  }, // y
- {     0,      0,     1  }  // z
- };
-
- const uint8_t default_receiver = SRXL;
- */
-
-/*
  uint8_t magic;
  uint8_t pad1;
  uint8_t pad2;
@@ -57,10 +23,13 @@
  rc_channel rc_ch[13];
  uint8_t pad8;
  uint8_t receiver;
-
+ uint8_t pad9;
+ uint8_t pad10;
+ uint8_t pad11;
+ float low_voltage;
  */
 
-// see structure above
+// see members of structure above
 const settings default_settings = {
         0xdb,   // magic
         0xff,   // padding
@@ -87,6 +56,10 @@ const settings default_settings = {
         { {0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0}, {5, 0}, {6, 0}, {7, 0}, {8, 0}, {9, 0}, {10, 0}, {11, 0}, {12, 0} }, // rc_ch
         0xff,  // padding
         SRXL,  // Receiver type
+        0xff,  // padding
+        0xff,  // padding
+        0xff,  // padding
+        10.5f
         };
 
 float pid_vars[9];
@@ -139,6 +112,8 @@ uint8_t snd_live = 0;
 uint8_t rcv_motors = 0;
 uint8_t live_receipt = 0;
 uint8_t channels_receipt = 0;
+
+float low_voltage;
 
 void check_settings_page(void)
 {
@@ -241,6 +216,8 @@ void analyze_settings(void)
     {
         rc_rev[i] = p_settings->rc_ch[i + 1].rev;
     }
+
+    low_voltage = p_settings->low_voltage;
 }
 
 void load_default_settings(void)
@@ -491,7 +468,9 @@ void receive_settings(void)
 
 void send_settings(uint8_t* flash)
 {
+#ifdef HAVE_DISPLAY
     char buf[10];
+#endif
     uint8_t res;
 
     res = CDC_Transmit_FS(flash, 1024);
@@ -556,7 +535,7 @@ void draw_program_pid_values(uint8_t line, float value, char* format, uint8_t in
 
     // if indexer points to current line and we are in program mode ( channels[rc_prog] middle )
     // then the new value adjustable by variable knob (channels[rc_var]) is shown
-    if ((index == line - offset) && (channels[rc_prog] > 1400) && (channels[rc_prog] < 2700))
+    if ((index == line - offset) && (channels[rc_prog] > L_TRSH) && (channels[rc_prog] < H_TRSH))
     {
         switch (index)
         {
@@ -605,9 +584,9 @@ void draw_program_pid_values(uint8_t line, float value, char* format, uint8_t in
 
         // if beeper switch is switched to lower position the new value will be written immediately
         // and continuously to ram (pid_vars[x]) while adjusting the value with the knob
-        if (channels[rc_beep] > 2700)
+        if (channels[rc_beep] > H_TRSH)
         {
-            if (channels[rc_mode] < 1400)
+            if (channels[rc_mode] < L_TRSH)
             {
                 pid_vars[index] = value;
             }

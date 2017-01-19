@@ -12,6 +12,11 @@ enum
     G, R, B
 };
 
+enum
+{
+    back, forth
+};
+
 extern uint8_t aCCValue_Buffer[];
 extern uint8_t led_val[][3];
 extern uint8_t led_tmp_val[3];
@@ -22,5 +27,6 @@ void led_rotate_left(uint8_t from, uint8_t to);
 void led_set_rainbow(uint8_t from, uint8_t to, uint8_t brightness);
 void led_set_armed_acro(uint8_t brightness);
 void led_set_armed_level_hold(uint8_t brightness);
+void led_set_off(uint8_t from, uint8_t to);
 
 #endif

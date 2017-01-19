@@ -143,7 +143,7 @@ extern "C"
 uint32_t erase_flash_page(void);
 //uint32_t write_flash_fvars(float* data, uint16_t length, uint16_t offset);
 uint32_t write_flash_vars(uint32_t* data, uint16_t length, uint16_t offset);
-void read_flash_fvars(float data[], uint16_t length, uint16_t offset);
+//void read_flash_fvars(float data[], uint16_t length, uint16_t offset);
 void read_flash_vars(uint32_t *data, uint16_t length, uint16_t offset);
 
 extern uint32_t flash_buf[256];

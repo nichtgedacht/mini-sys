@@ -88,6 +88,7 @@ uint32_t write_flash_vars(uint32_t* data, uint16_t length, uint16_t offset)
     return HAL_OK;
 }
 
+/*
 void read_flash_fvars(float data[], uint16_t length, uint16_t offset)
 {
     uint32_t Address = FLASH_USER_START_ADDR;
@@ -101,6 +102,7 @@ void read_flash_fvars(float data[], uint16_t length, uint16_t offset)
             Address += 4;
     }
 }
+*/
 
 void read_flash_vars(uint32_t *data, uint16_t length, uint16_t offset)
 {

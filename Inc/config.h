@@ -13,6 +13,10 @@
 //#define HAVE_DISPLAY
 //#define HAVE_SD_CARD
 
+#define L_TRSH 1400
+#define H_TRSH 2700
+#define TRANS_OFFS 1000
+
 enum { roll, nick, gier }; // all axis index
 enum { SBUS, SRXL }; // receiver index
 enum { RKp, RKi, RKd, NKp, NKi, NKd, GKp, GKi, GKd }; // pid index
@@ -68,6 +72,10 @@ typedef struct {
     rc_channel rc_ch[13];
     uint8_t pad8;
     uint8_t receiver;
+    uint8_t pad9;
+    uint8_t pad10;
+    uint8_t pad11;
+    float low_voltage;
 } settings;
 
 extern const settings default_settings;
@@ -120,6 +128,8 @@ extern uint8_t snd_live;
 extern uint8_t rcv_motors;
 extern uint8_t live_receipt;
 extern uint8_t channels_receipt;
+
+extern float low_voltage;
 
 // example:
 // cannels[rc_thrust];
