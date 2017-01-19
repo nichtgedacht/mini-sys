@@ -25,10 +25,6 @@
 		<nature>fr.ac6.mcu.ide.core.MCUProjectNature</nature>
 	</natures>
 	<linkedResources>
-		<link>
-			<name />
-			<type />
-			<location />
-		</link>
+		
 	</linkedResources>
 </projectDescription>

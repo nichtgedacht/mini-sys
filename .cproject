@@ -103,7 +103,7 @@
 							</tool>
 						</toolChain>
 					</folderInfo>
-					<sourceEntries>
+					<sourceEntries><entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="startup" />
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Drivers" />
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Inc" />
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Middlewares" />
@@ -216,7 +216,7 @@
 							</tool>
 						</toolChain>
 					</folderInfo>
-					<sourceEntries>
+					<sourceEntries><entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="startup" />
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Drivers" />
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Inc" />
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Middlewares" />
