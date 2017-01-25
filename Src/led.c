@@ -70,7 +70,6 @@ void led_rotate_left(uint8_t from, uint8_t to)
     led_val[to][R] = led_tmp_val[R];
     led_val[to][B] = led_tmp_val[B];
 
-    led_trans_vals();
 }
 
 void led_set_rainbow(uint8_t from, uint8_t to, uint8_t brightness)

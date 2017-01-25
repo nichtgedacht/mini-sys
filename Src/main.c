@@ -102,6 +102,7 @@ uint8_t indexer = 0;
 uint32_t millis[2];
 uint32_t micros[2];
 uint8_t low_volt = 0;
+uint8_t warning = 0;
 
 /* USER CODE END PV */
 
@@ -422,8 +423,8 @@ int main(void)
             } // not armed
 
             // do it in time pieces
-            // any of 8 slots will be repeated at 25Hz ( 40ms )
-            if (counter >= 8)
+            // any of 8 slots will be repeated at 25Hz ( 40ms ) and may last at least 4ms
+            if (counter >= 8) // Program With Display, Flight Display and LED State Change Slot
             {
                 counter = 0;
 
@@ -582,7 +583,7 @@ int main(void)
                 }
             }
 
-            if (counter == 7)
+            if (counter == 7) // Batt Voltage Slot
             {
                 HAL_ADCEx_Calibration_Start(&hadc1);
                 if (HAL_ADC_Start(&hadc1) == HAL_OK)
@@ -594,35 +595,34 @@ int main(void)
                     HAL_ADC_Stop(&hadc1);
                 }
 
-                // beeper not enabled if USB is connected
-                if ((volt1 < low_voltage || channels[rc_beep] > L_TRSH)
-                        && hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED)
+                if ( volt1 < low_voltage )
                 {
-                    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
                     low_volt = 1;
                 }
-                else if (low_volt == 0)
+                else if (volt1 > (low_voltage + 1.0f) )
                 {
-                    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
+                    low_volt = 0;
                 }
             }
 
-            if (counter == 6)
+            if (counter == 6) // Board LED Slot
             {
                 HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_1);
                 HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
             }
 
-            if (counter == 5)
+            if (counter == 5) // LEDs Show State Slot
             {
                 // rotate led colors unless armed light
                 if (armed == 0)
                 {
                     // rotate colors, right is moving inner to outer
-                    if (low_volt == 0)
+                    led_rotate_right(0, NR_COLORS - 1);
+                    //led_rotate_left(0, NR_COLORS - 1);
+
+                    if (warning == 0) // to not disturb warning LED off period
                     {
-                        led_rotate_right(0, NR_COLORS - 1);
-                        //led_rotate_left(0, NR_COLORS - 1);
+                        led_trans_vals();
                     }
                 }
                 else
@@ -642,42 +642,35 @@ int main(void)
                 }
             }
 
-            if (counter == 4)
+            if (counter == 4)  // Warning Slot
             {
-                led_blink_counter++;
+                led_blink_counter = led_blink_counter == 1 ? 2 : 1;
 
-                if (led_blink_counter >= 2)
+                if ( ( low_volt == 1 || channels[rc_beep] > L_TRSH ) &&  hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED )
                 {
-                    led_blink_counter = 0;
+                    // beep
+                    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
+                    warning = 1;
+                }
 
-                    if (low_volt == 1)
+                if ( warning == 1 )
+                {
+                    if ( led_blink_counter == 2 )
                     {
+                        // blink OFF
                         led_set_off(0, NR_LEDS);
                     }
-                }
-                else
-                {
-                    if (low_volt == 1)
+                    else
                     {
-                        if (armed == 0)
-                        {
-                            led_set_rainbow(0, NR_COLORS, 128);
-                        }
-                        else
-                        {
-                            if (channels[rc_mode] < L_TRSH)
-                            {
-                                led_set_armed_acro(255);
-                            }
-                            else
-                            {
-                                led_set_armed_level_hold(255);
-                            }
-                        }
+                        // blink ON
+                        led_trans_vals();
 
-                        if (volt1 > (low_voltage + 1.0f))
+                        // reset warning state after blink period finished if warning condition vanished
+                        if ( ( low_volt == 0 && channels[rc_beep] < H_TRSH ) || hUsbDeviceFS.dev_state == USBD_STATE_CONFIGURED )
                         {
-                            low_volt = 0;
+                            // unbeep
+                            HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
+                            warning = 0;
                         }
                     }
                 }

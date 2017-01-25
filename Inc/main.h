@@ -46,6 +46,22 @@
   /* Includes ------------------------------------------------------------------*/
 
 /* USER CODE BEGIN Includes */
+//#include "stm32_adafruit_lcd.h"
+//#include "stm32_adafruit_sd.h"
+//#include "usbd_cdc_if.h"
+//#include "fatfs_storage.h"
+//#include "unistd.h"
+//#include "mpu9250.h"
+//#include "math.h"
+//#include "rc.h"
+//#include "servo.h"
+//#include "controller.h"
+//#include "flash.h"
+//#include "config.h"
+//#include "led.h"
+
+//#include "stm32f1xx_hal_dma.h"
+//#include "stm32f1xx_hal_tim.h"
 
 /* USER CODE END Includes */
 
