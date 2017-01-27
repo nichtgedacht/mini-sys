@@ -97,7 +97,7 @@ float vx = 0.0f, vy = 0.0f;
 HAL_StatusTypeDef hal_res;
 uint32_t idle_counter;
 float cp_pid_vars[9];
-uint8_t i, armed = 0;
+uint8_t i, armed = 0, back_armed = 0;
 uint8_t indexer = 0;
 uint32_t millis[2];
 uint32_t micros[2];
@@ -431,14 +431,14 @@ int main(void)
                 if (armed == 0)
                 {
                     // transition to motor stop clear screen
-                    if (back_channels[rc_arm] - channels[rc_arm] > TRANS_OFFS)
+                    if ( back_armed - armed > 0 )
                     {
                         led_set_rainbow(0, NR_COLORS, 128);
 #ifdef HAVE_DISPLAY
                         BSP_LCD_SetRotation(0);
                         BSP_LCD_Clear(LCD_COLOR_BLACK);
 #endif
-                        back_channels[rc_arm] = channels[rc_arm];
+                        back_armed = armed;
                     }
 #ifdef HAVE_DISPLAY
                     // transition of beeper momentary switch (channels[rc_beep]) detect
@@ -522,7 +522,7 @@ int main(void)
                 else // armed, flight mode screen
                 {
                     // transition to armed
-                    if (channels[rc_arm] - back_channels[rc_arm] > TRANS_OFFS)
+                    if ( armed - back_armed > 0 )
                     {
                         if (channels[rc_mode] < L_TRSH)
                         {
@@ -536,7 +536,7 @@ int main(void)
                         BSP_LCD_SetRotation(3);
                         BSP_LCD_Clear(LCD_COLOR_BLACK);
 #endif
-                        back_channels[rc_arm] = channels[rc_arm];
+                        back_armed = armed;
                     }
 #ifdef HAVE_DISPLAY
                     //########### water bubble ################################
@@ -607,8 +607,8 @@ int main(void)
 
             if (counter == 6) // Board LED Slot
             {
-                HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_1);
-                HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+                HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_1);    // maple mini clone board
+                //HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13); // minimum development system board
             }
 
             if (counter == 5) // LEDs Show State Slot
