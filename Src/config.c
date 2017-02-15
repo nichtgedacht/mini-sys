@@ -29,6 +29,7 @@
  float low_voltage;
  */
 
+/*
 // see members of structure above
 const settings default_settings = {
         0xdb,   // magic
@@ -60,6 +61,78 @@ const settings default_settings = {
         0xff,  // padding
         0xff,  // padding
         10.5f
+        };
+*/
+
+/*
+    uint8_t magic;
+    uint8_t pad1[7];    // 1 + 7 = 8
+    float pidvars[9];
+    uint8_t pad2[4];    // 9 * 4 + 4 = 40
+    float l_pidvars[9];
+    uint8_t pad3[4];    // 9 * 4 + 4 = 40
+    float rate[3];      // 3 * 4 + 4 = 16
+    uint8_t pad4[4];
+    motor motor_1;
+    motor motor_2;
+    motor motor_3;
+    motor motor_4;      // 4 * 2 = 8
+    matrix sensor_orient;
+    uint8_t pad5[7];    // 3 * 3 + 7 = 16
+    float aspect_ratio;
+    uint8_t pad6[4];    // 4 + 4 = 8
+    rc_channel rc_func[13];
+    uint8_t pad7[6];    // 2 * 13 + 6 = 32
+    rc_channel rc_ch[13];
+    int8_t pad8[6];     // 2 * 13 + 6 = 32
+    uint8_t receiver;
+    int8_t pad9[7];     // 1 + 7 = 8
+    float low_voltage;
+    int8_t pad10[4];     // 4 + 4 = 8
+*/
+
+// new 8 bytes alignment
+// see members of structure above
+const settings default_settings = {
+        0xdb,   // magic
+        { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },                              // padding
+
+        { 0.24f, 1.5f, 0.004f, 0.24f, 1.5f, 0.004f, 0.5f, 1.5f, 0.001f },          // pid_vars
+        { 0xff, 0xff, 0xff, 0xff },                                                // padding
+
+        { 0.1f, 0.03f, 0.02f, 0.1f, 0.03f, 0.02f, 1.0f, 1.5f, 0.001f },            // l_pid_vars
+        { 0xff, 0xff, 0xff, 0xff },                                                // padding
+
+        { 250.0f, 250.0f, 250.0f },                                                // rate
+        { 0xff, 0xff, 0xff, 0xff },                                                // padding
+
+        { CCW, 1 },  // motor_1
+        { CW, 2 },   // motor_2
+        { CW, 3 },   // motor_3
+        { CCW, 4 },  // motor_4
+
+        { // Front   Left   Top   //sensor_orient
+        {     1,      0,     0 }, // x
+        {     0,      1,     0 }, // y
+        {     0,      0,     1 }  // z
+        },
+        { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },                              // padding
+
+        1.0f,  // aspect_ratio
+        { 0xff, 0xff, 0xff, 0xff },                                                // padding
+
+        { {0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0}, {5, 0}, {6, 0}, {7, 0}, {8, 0}, {9, 0}, {10, 0}, {11, 0}, {12, 0} }, // rc_func
+        { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },                                    // padding
+
+        { {0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0}, {5, 0}, {6, 0}, {7, 0}, {8, 0}, {9, 0}, {10, 0}, {11, 0}, {12, 0} }, // rc_ch
+        { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },                                    // padding
+
+        SRXL,                                                                      // Receiver type
+        { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },                              // padding
+
+        10.5f,
+        { 0xff, 0xff, 0xff, 0xff },                                                // padding
+
         };
 
 float pid_vars[9];
