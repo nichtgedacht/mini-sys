@@ -79,8 +79,7 @@ void control(int16_t thrust_set, int16_t roll_set, int16_t nick_set, int16_t gie
     servos[motor1_tim_ch] = thrust_set - roll_set - nick_set + gier_set * rot_dir[M1];  // Motor 1 rear left   CCW
     servos[motor2_tim_ch] = thrust_set - roll_set + nick_set + gier_set * rot_dir[M2];  // Motor 2 front left  CW
     servos[motor3_tim_ch] = thrust_set + roll_set - nick_set + gier_set * rot_dir[M3];  // Motor 3 rear right  CW
-    servos[motor4_tim_ch] = thrust_set + roll_set + nick_set + gier_set * rot_dir[M1];  // Motor 4 front right CCW
-
+    servos[motor4_tim_ch] = thrust_set + roll_set + nick_set + gier_set * rot_dir[M4];  // Motor 4 front right CCW
 
     // It is essential that these statements are completed within the current period before
     // the values are taken by HAL_TIM_PWM_PulseFinishedCallback (in servo.c).

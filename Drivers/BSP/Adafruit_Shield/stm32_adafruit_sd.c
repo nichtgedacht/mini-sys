@@ -342,6 +342,7 @@ uint8_t BSP_SD_ReadBlocks(uint32_t* pData, uint32_t ReadAddr, uint16_t BlockSize
     uint8_t retr = BSP_SD_ERROR;
     uint8_t *ptr = NULL;
     SD_CmdAnswer_typedef response;
+    uint8_t block[BlockSize];
 
     /* Send CMD16 (SD_CMD_SET_BLOCKLEN) to set the size of the block and
      Check if the SD acknowledged the set block length command: R1 response (0x00: no errors) */
@@ -353,11 +354,12 @@ uint8_t BSP_SD_ReadBlocks(uint32_t* pData, uint32_t ReadAddr, uint16_t BlockSize
         goto error;
     }
 
-    ptr = malloc(sizeof(uint8_t) * BlockSize);
-    if (ptr == NULL)
-    {
-        goto error;
-    }
+    //ptr = malloc(sizeof(uint8_t) * BlockSize);
+    ptr = (uint8_t *) &block;
+//    if (ptr == NULL)
+//    {
+//        goto error;
+//    }
     memset(ptr, SD_DUMMY_BYTE, sizeof(uint8_t) * BlockSize);
 
     /* Data transfer */
@@ -394,16 +396,16 @@ uint8_t BSP_SD_ReadBlocks(uint32_t* pData, uint32_t ReadAddr, uint16_t BlockSize
         SD_IO_WriteByte(SD_DUMMY_BYTE);
     }
 
-    if (ptr != NULL)
-        free(ptr);
+//    if (ptr != NULL)
+//        free(ptr);
     retr = BSP_SD_OK;
 
     error:
     /* Send dummy byte: 8 Clock pulses of delay */
     SD_IO_CSState(1);
     SD_IO_WriteByte(SD_DUMMY_BYTE);
-    if (ptr != NULL)
-        free(ptr);
+//    if (ptr != NULL)
+//        free(ptr);
 
     /* Return the reponse */
     return retr;
@@ -423,6 +425,7 @@ uint8_t BSP_SD_WriteBlocks(uint32_t* pData, uint32_t WriteAddr, uint16_t BlockSi
     uint8_t retr = BSP_SD_ERROR;
     uint8_t *ptr = NULL;
     SD_CmdAnswer_typedef response;
+    uint8_t block[BlockSize];
 
     /* Send CMD16 (SD_CMD_SET_BLOCKLEN) to set the size of the block and
      Check if the SD acknowledged the set block length command: R1 response (0x00: no errors) */
@@ -434,11 +437,12 @@ uint8_t BSP_SD_WriteBlocks(uint32_t* pData, uint32_t WriteAddr, uint16_t BlockSi
         goto error;
     }
 
-    ptr = malloc(sizeof(uint8_t) * BlockSize);
-    if (ptr == NULL)
-    {
-        goto error;
-    }
+    //ptr = malloc(sizeof(uint8_t) * BlockSize);
+    ptr = (uint8_t *) &block;
+//    if (ptr == NULL)
+//    {
+//        goto error;
+//    }
 
     /* Data transfer */
     while (NumberOfBlocks--)
@@ -484,8 +488,9 @@ uint8_t BSP_SD_WriteBlocks(uint32_t* pData, uint32_t WriteAddr, uint16_t BlockSi
     //    free(ptr);
     retr = BSP_SD_OK;
 
-    error: if (ptr != NULL)
-        free(ptr);
+    error:
+//    if (ptr != NULL)
+//        free(ptr);
     /* Send dummy byte: 8 Clock pulses of delay */
     SD_IO_CSState(1);
     SD_IO_WriteByte(SD_DUMMY_BYTE);

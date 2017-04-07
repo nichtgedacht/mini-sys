@@ -318,7 +318,7 @@ int main(void)
                     // full stick equals ~250 degrees per second with rate of 8 (2000 / 250)
                     // gy range goes from 0 - 1000 [DPS]
                     diffroll = gy[se_roll] * se_roll_sign * rate[se_roll] - (float) channels[rc_roll] + MIDDLE_POS; // native middle positions
-                    diffnick = gy[se_nick] * se_nick_sign * rate[se_nick] - (float) channels[rc_nick] + MIDDLE_POS;
+                    diffnick = gy[se_nick] * se_nick_sign * rate[se_nick] - (float) channels[rc_nick] + MIDDLE_POS; // rc from -2048 to +2048
 
                     // max 334 us
                     //millis[1] = HAL_GetTick();
