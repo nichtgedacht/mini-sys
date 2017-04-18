@@ -9,9 +9,13 @@ extern "C"
 #include "servo.h"
 #include "math.h"
 
-extern float diffroll;
-extern float diffnick;
-extern float diffgier;
+extern float diff_roll_rate;
+extern float diff_nick_rate;
+
+extern float diff_roll_ang;
+extern float diff_nick_ang;
+
+extern float diff_gier_rate;
 
 extern int16_t thrust_set;
 extern int16_t roll_set;

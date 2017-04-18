@@ -2,9 +2,13 @@
 #include "mpu9250.h"
 #include "config.h"
 
-float diffroll = 0.0f;
-float diffnick = 0.0f;
-float diffgier = 0.0f;
+float diff_roll_rate = 0.0f;
+float diff_nick_rate = 0.0f;
+
+float diff_roll_ang = 0.0f;
+float diff_nick_ang = 0.0f;
+
+float diff_gier_rate = 0.0f;
 
 int16_t thrust_set = 0;
 int16_t roll_set = 0;
@@ -69,11 +73,11 @@ void control(int16_t thrust_set, int16_t roll_set, int16_t nick_set, int16_t gie
     gier_set = gier_set < -400 ? -400 : (gier_set > 400 ? 400 : gier_set);
 
     /* old original
-    servos[0] = thrust_set - roll_set - nick_set - gier_set;  // Motor rear left   CCW
-    servos[1] = thrust_set - roll_set + nick_set + gier_set;  // Motor front left  CW
-    servos[2] = thrust_set + roll_set - nick_set + gier_set;  // Motor rear right  CW
-    servos[3] = thrust_set + roll_set + nick_set - gier_set;  // Motor front right CCW
-    */
+     servos[0] = thrust_set - roll_set - nick_set - gier_set;  // Motor rear left   CCW
+     servos[1] = thrust_set - roll_set + nick_set + gier_set;  // Motor front left  CW
+     servos[2] = thrust_set + roll_set - nick_set + gier_set;  // Motor rear right  CW
+     servos[3] = thrust_set + roll_set + nick_set - gier_set;  // Motor front right CCW
+     */
 
     // change roll, nick, gier to x, y, z. We need 0, 1, 2 as fixed index
     servos[motor1_tim_ch] = thrust_set - roll_set - nick_set + gier_set * rot_dir[M1];  // Motor 1 rear left   CCW
@@ -84,10 +88,14 @@ void control(int16_t thrust_set, int16_t roll_set, int16_t nick_set, int16_t gie
     // It is essential that these statements are completed within the current period before
     // the values are taken by HAL_TIM_PWM_PulseFinishedCallback (in servo.c).
     // That is < 1ms since PeriodElapsed flag was set.
-    servos[motor1_tim_ch] = servos[motor1_tim_ch] < 4000 ? 4000 : (servos[motor1_tim_ch] > 8000 ? 8000 : servos[motor1_tim_ch]);
-    servos[motor2_tim_ch] = servos[motor2_tim_ch] < 4000 ? 4000 : (servos[motor2_tim_ch] > 8000 ? 8000 : servos[motor2_tim_ch]);
-    servos[motor3_tim_ch] = servos[motor3_tim_ch] < 4000 ? 4000 : (servos[motor3_tim_ch] > 8000 ? 8000 : servos[motor3_tim_ch]);
-    servos[motor4_tim_ch] = servos[motor4_tim_ch] < 4000 ? 4000 : (servos[motor4_tim_ch] > 8000 ? 8000 : servos[motor4_tim_ch]);
+    servos[motor1_tim_ch] =
+            servos[motor1_tim_ch] < 4000 ? 4000 : (servos[motor1_tim_ch] > 8000 ? 8000 : servos[motor1_tim_ch]);
+    servos[motor2_tim_ch] =
+            servos[motor2_tim_ch] < 4000 ? 4000 : (servos[motor2_tim_ch] > 8000 ? 8000 : servos[motor2_tim_ch]);
+    servos[motor3_tim_ch] =
+            servos[motor3_tim_ch] < 4000 ? 4000 : (servos[motor3_tim_ch] > 8000 ? 8000 : servos[motor3_tim_ch]);
+    servos[motor4_tim_ch] =
+            servos[motor4_tim_ch] < 4000 ? 4000 : (servos[motor4_tim_ch] > 8000 ? 8000 : servos[motor4_tim_ch]);
 
     /*
      Mapping:

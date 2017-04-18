@@ -8,12 +8,12 @@ static float invSqrt(float x);
 //#define twoKiDef        (2.0f * 0.8f)   // 2 * integral gain
 
 //#define twoKpDef        (2.0f * 1.0f)   // 2 * proportional gain
-//#define twoKiDef        (2.0f * 0.5f)   // 2 * integral gain
+#define twoKiDef        (2.0f * 0.5f)   // 2 * integral gain
 
 #define twoKiDef        (2.0f * 0.0f)   // 2 * integral gain
 //#define twoKpDef        (2.0f * 0.5f)   // 2 * proportional gain
 
-#define twoKpDef        (2.0f * 1.0f)   // 2 * proportional gain
+#define twoKpDef        (2.0f * 0.5f)   // 2 * proportional gain
 
 float twoKp = twoKpDef;                                             // 2 * proportional gain (Kp)
 float twoKi = twoKiDef;                                             // 2 * integral gain (Ki)
@@ -278,7 +278,7 @@ void BSP_MPU_updateIMU(float ax, float ay, float az, float gx, float gy, float g
         halfey = (az * halfvx - ax * halfvz);
         halfez = (ax * halfvy - ay * halfvx);
 
-        /*
+
         // Compute and apply integral feedback if enabled
         if (twoKi > 0.0f)
         {
@@ -295,7 +295,6 @@ void BSP_MPU_updateIMU(float ax, float ay, float az, float gx, float gy, float g
             integralFBy = 0.0f;
             integralFBz = 0.0f;
         }
-        */
 
         // Apply proportional feedback
         gx += twoKp * halfex;

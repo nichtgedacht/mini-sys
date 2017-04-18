@@ -182,13 +182,28 @@ int main(void)
         HAL_UART_Receive_IT(&huart1, (uint8_t*) uart_data, 35);
     }
 
-    // no sample rate divider (0+1), accel: lowpass filter bandwidth 460 Hz, Rate 1kHz, gyro: lowpass filter bandwidth 250 Hz
-    // gyro lpf, 2. parameter:
+    // BSP_MPU_Init() Parameter:
+    // no sample rate divider (0+1, 1. parameter), gyro and accel lowpass filters see below
+    // gyro dlpf, 2. parameter:
     // 0  250 Hz
     // 1  184 Hz
     // 2   92 Hz
     // 3   41 Hz
-    BSP_MPU_Init(0, 2, 0);
+    // 4   20 Hz
+    // 5   10 Hz
+    // 6    5 Hz
+
+    // acc dlpf, 3. parameter
+    // 0  460 Hz
+    // 1  184 Hz
+    // 2   92 Hz
+    // 3   41 Hz
+    // 4   20 Hz
+    // 5   10 Hz
+    // 6    5 Hz
+
+    //BSP_MPU_Init(0, 2, 0);
+    BSP_MPU_Init(0, 1, 1);
     HAL_Delay(4000); // wait for silence after batteries plugged in
     BSP_MPU_GyroCalibration();
 
@@ -264,7 +279,7 @@ int main(void)
         // reference probe
         //millis[0] = HAL_GetTick();
         //micros[0] = SysTick->VAL;
-        if (PeriodElapsed == 1) // 200 Hz from servo timer
+        if (PeriodElapsed == 1) // 400 Hz from servo timer
         {
             // max 8 us
             // millis[1] = HAL_GetTick();
@@ -297,7 +312,7 @@ int main(void)
 
             // use int values se_roll, se_nick, se_gier as index to map different orientations of the sensor
             BSP_MPU_updateIMU(ac[se_roll] * se_roll_sign, ac[se_nick] * se_nick_sign, ac[se_gier] * se_gier_sign,
-                    gy[se_roll] * se_roll_sign, gy[se_nick] * se_nick_sign, gy[se_gier] * se_gier_sign, 5.0f); // dt 5ms
+                    gy[se_roll] * se_roll_sign, gy[se_nick] * se_nick_sign, gy[se_gier] * se_gier_sign, 2.5f); // dt 5ms
 
             // then it comes out here properly mapped because Quaternions already changed axes
             BSP_MPU_getEuler(&ang[roll], &ang[nick], &ang[gier]);
@@ -315,17 +330,17 @@ int main(void)
                 if (channels[rc_mode] < L_TRSH)
                 {
                     // attitude hold mode
-                    // full stick equals ~250 degrees per second with rate of 8 (2000 / 250)
+                    // full stick equals 250 degrees per second with rate[x] of 8.192 (2048 / 250)
                     // gy range goes from 0 - 1000 [DPS]
-                    diffroll = gy[se_roll] * se_roll_sign * rate[se_roll] - (float) channels[rc_roll] + MIDDLE_POS; // native middle positions
-                    diffnick = gy[se_nick] * se_nick_sign * rate[se_nick] - (float) channels[rc_nick] + MIDDLE_POS; // rc from -2048 to +2048
+                    diff_roll_rate = gy[se_roll] * se_roll_sign * rate[se_roll] - (float) channels[rc_roll] + MIDDLE_POS; // native middle positions
+                    diff_nick_rate = gy[se_nick] * se_nick_sign * rate[se_nick] - (float) channels[rc_nick] + MIDDLE_POS; // rc from -2048 to +2048
 
                     // max 334 us
                     //millis[1] = HAL_GetTick();
                     //micros[1] = SysTick->VAL;
 
-                    roll_set = pid(x, scale_roll, diffroll, pid_vars[RKp], pid_vars[RKi], pid_vars[RKd], 5.0f);
-                    nick_set = pid(y, scale_nick, diffnick, pid_vars[NKp], pid_vars[NKi], pid_vars[NKd], 5.0f);
+                    roll_set = pid(x, scale_roll, diff_roll_rate, pid_vars[RKp], pid_vars[RKi], pid_vars[RKd], 2.5f);
+                    nick_set = pid(y, scale_nick, diff_nick_rate, pid_vars[NKp], pid_vars[NKi], pid_vars[NKd], 2.5f);
 
                     // max 403 us
                     //millis[1] = HAL_GetTick();
@@ -335,18 +350,24 @@ int main(void)
                 else // mode 2 and mode 3 are the same currently
                 {
                     // level hold mode
-                    // full stick 45 degrees
-                    diffroll = ang[roll] * 2000.0f / (M_PI / 4.0f) - (float) channels[rc_roll] + MIDDLE_POS;
-                    diffnick = ang[nick] * 2000.0f / (M_PI / 4.0f) - (float) channels[rc_nick] + MIDDLE_POS;
+                    // full stick translates to 45 degrees shifted
+                    // ang[x] in radiant
+                    diff_roll_ang = ang[roll] * 2048.0f / (M_PI / 4.0f) - (float) channels[rc_roll] + MIDDLE_POS; // native middle positions
+                    diff_nick_ang = ang[nick] * 2048.0f / (M_PI / 4.0f) - (float) channels[rc_nick] + MIDDLE_POS; // rc from -2048 to +2048
 
-                    roll_set = pid(x, scale_roll, diffroll, l_pid_vars[RKp], l_pid_vars[RKi], l_pid_vars[RKd], 5.0f);
-                    nick_set = pid(y, scale_nick, diffnick, l_pid_vars[NKp], l_pid_vars[NKi], l_pid_vars[NKd], 5.0f);
+                    // calculate errors of roll rate and nick rate from errors of roll angle and nick angle scaled by 1.0f (P only control)
+                    // i.e. using angle error as setpoint for rate instead of input from RC
+                    diff_roll_rate = gy[se_roll] * se_roll_sign * rate[se_roll] + diff_roll_ang;
+                    diff_nick_rate = gy[se_nick] * se_nick_sign * rate[se_nick] + diff_nick_ang;
+
+                    roll_set = pid(x, scale_roll, diff_roll_rate, pid_vars[RKp], pid_vars[RKi], pid_vars[RKd], 2.5f);
+                    nick_set = pid(y, scale_nick, diff_nick_rate, pid_vars[NKp], pid_vars[NKi], pid_vars[NKd], 2.5f);
                 }
 
-                // full stick equals ~250 degrees per second with rate of 8 (2000 / 250)
+                // full stick equals ~250 degrees per second with rate of ~8 (2048 / 250)
                 // gy range goes from 0 - 1000 [DPS]
-                diffgier = gy[se_gier] * se_gier_sign * rate[se_gier] + (float) channels[rc_gier] - MIDDLE_POS; // control reversed, gy right direction
-                gier_set = pid(z, 1.0f, diffgier, pid_vars[GKp], pid_vars[GKi], pid_vars[GKd], 5.0f);
+                diff_gier_rate = gy[se_gier] * se_gier_sign * rate[se_gier] + (float) channels[rc_gier] - MIDDLE_POS; // control reversed, gy right direction
+                gier_set = pid(z, 1.0f, diff_gier_rate, pid_vars[GKp], pid_vars[GKi], pid_vars[GKd], 2.5f);
 
                 // max 439 us
                 //millis[1] = HAL_GetTick();
@@ -431,7 +452,7 @@ int main(void)
                 if (armed == 0)
                 {
                     // transition to motor stop clear screen
-                    if ( back_armed - armed > 0 )
+                    if (back_armed - armed > 0)
                     {
                         led_set_rainbow(0, NR_COLORS, 128);
 #ifdef HAVE_DISPLAY
@@ -522,7 +543,7 @@ int main(void)
                 else // armed, flight mode screen
                 {
                     // transition to armed
-                    if ( armed - back_armed > 0 )
+                    if (armed - back_armed > 0)
                     {
                         if (channels[rc_mode] < L_TRSH)
                         {
@@ -534,13 +555,14 @@ int main(void)
                         }
 #ifdef HAVE_DISPLAY
                         BSP_LCD_SetRotation(3);
-                        BSP_LCD_Clear(LCD_COLOR_BLACK);
+                        BSP_LCD_Clear(LCD_COLOR_GREEN);
 #endif
                         back_armed = armed;
                     }
 #ifdef HAVE_DISPLAY
                     //########### water bubble ################################
 
+                    /*
                     BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
                     BSP_LCD_DrawCircle(xp, yp, 5);
 
@@ -577,6 +599,7 @@ int main(void)
 
                     BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
                     BSP_LCD_DrawCircle(xp, yp, 5);
+                    */
 
                     //############ end water bubble ###########################
 #endif
@@ -595,11 +618,11 @@ int main(void)
                     HAL_ADC_Stop(&hadc1);
                 }
 
-                if ( volt1 < low_voltage )
+                if (volt1 < low_voltage)
                 {
                     low_volt = 1;
                 }
-                else if (volt1 > (low_voltage + 1.0f) )
+                else if (volt1 > (low_voltage + 1.0f))
                 {
                     low_volt = 0;
                 }
@@ -646,16 +669,16 @@ int main(void)
             {
                 led_blink_counter = led_blink_counter == 1 ? 2 : 1;
 
-                if ( ( low_volt == 1 || channels[rc_beep] > L_TRSH ) &&  hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED )
+                if ((low_volt == 1 || channels[rc_beep] > L_TRSH) && hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED)
                 {
                     // beep
                     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
                     warning = 1;
                 }
 
-                if ( warning == 1 )
+                if (warning == 1)
                 {
-                    if ( led_blink_counter == 2 )
+                    if (led_blink_counter == 2)
                     {
                         // blink OFF
                         led_set_off(0, NR_LEDS);
@@ -666,7 +689,8 @@ int main(void)
                         led_trans_vals();
 
                         // reset warning state after blink period finished if warning condition vanished
-                        if ( ( low_volt == 0 && channels[rc_beep] < H_TRSH ) || hUsbDeviceFS.dev_state == USBD_STATE_CONFIGURED )
+                        if ((low_volt == 0 && channels[rc_beep] < H_TRSH)
+                                || hUsbDeviceFS.dev_state == USBD_STATE_CONFIGURED)
                         {
                             // unbeep
                             HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
@@ -691,6 +715,10 @@ int main(void)
 
             }
 
+
+            // For visualization by Processing Software
+            //sprintf(buf2, "%3.3f,%3.3f,%3.3f\n", ang[gier], ang[nick], ang[roll]);
+
             //sprintf(buf2, "%ld\n", idle_counter);
             //CDC_Transmit_FS((uint8_t*) buf2, strlen(buf2));
 
@@ -698,7 +726,7 @@ int main(void)
             //millis[1] = HAL_GetTick();
             //micros[1] = SysTick->VAL;
 
-            /*
+             /*
              if ( micros[0] > micros[1] )
              {
              sprintf(buf2, "diff: %ld\n", ( micros[0] - micros[1] ) / 72 + 1000 * ( millis[1] - millis[0] ) );

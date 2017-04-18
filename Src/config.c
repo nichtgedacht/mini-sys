@@ -214,7 +214,7 @@ void analyze_settings(void)
     for (i = 0; i < 3; i++)
     {
         // translate rate deg/s to appropriate factor
-        rate[i] = 2000.0f / p_settings->rate[i];
+        rate[i] = 2048.0f / p_settings->rate[i];
     }
 
     if (p_settings->aspect_ratio > 1)
