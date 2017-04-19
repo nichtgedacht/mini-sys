@@ -100,7 +100,7 @@ const settings default_settings = {
         { 0.24f, 1.5f, 0.004f, 0.24f, 1.5f, 0.004f, 0.5f, 1.5f, 0.001f },          // pid_vars
         { 0xff, 0xff, 0xff, 0xff },                                                // padding
 
-        { 0.1f, 0.03f, 0.02f, 0.1f, 0.03f, 0.02f, 1.0f, 1.5f, 0.001f },            // l_pid_vars
+        { 0.24f, 1.5f, 0.004f, 0.24f, 1.5f, 0.004f, 0.5f, 1.5f, 0.001f },          // l_pid_vars
         { 0xff, 0xff, 0xff, 0xff },                                                // padding
 
         { 250.0f, 250.0f, 250.0f },                                                // rate

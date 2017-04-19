@@ -203,7 +203,7 @@ int main(void)
     // 6    5 Hz
 
     //BSP_MPU_Init(0, 2, 0);
-    BSP_MPU_Init(0, 1, 1);
+    BSP_MPU_Init(0, 2, 2);
     HAL_Delay(4000); // wait for silence after batteries plugged in
     BSP_MPU_GyroCalibration();
 
@@ -312,7 +312,7 @@ int main(void)
 
             // use int values se_roll, se_nick, se_gier as index to map different orientations of the sensor
             BSP_MPU_updateIMU(ac[se_roll] * se_roll_sign, ac[se_nick] * se_nick_sign, ac[se_gier] * se_gier_sign,
-                    gy[se_roll] * se_roll_sign, gy[se_nick] * se_nick_sign, gy[se_gier] * se_gier_sign, 2.5f); // dt 5ms
+                    gy[se_roll] * se_roll_sign, gy[se_nick] * se_nick_sign, gy[se_gier] * se_gier_sign, 2.5f); // dt 2.5ms
 
             // then it comes out here properly mapped because Quaternions already changed axes
             BSP_MPU_getEuler(&ang[roll], &ang[nick], &ang[gier]);
@@ -329,7 +329,7 @@ int main(void)
 
                 if (channels[rc_mode] < L_TRSH)
                 {
-                    // attitude hold mode
+                    // attitude hold mode (rate controlled)
                     // full stick equals 250 degrees per second with rate[x] of 8.192 (2048 / 250)
                     // gy range goes from 0 - 1000 [DPS]
                     diff_roll_rate = gy[se_roll] * se_roll_sign * rate[se_roll] - (float) channels[rc_roll] + MIDDLE_POS; // native middle positions
@@ -346,10 +346,13 @@ int main(void)
                     //millis[1] = HAL_GetTick();
                     //micros[1] = SysTick->VAL;
 
+                    diff_gier_rate = gy[se_gier] * se_gier_sign * rate[se_gier] + (float) channels[rc_gier] - MIDDLE_POS; // control reversed, gy right direction
+                    gier_set = pid(z, 1.0f, diff_gier_rate, pid_vars[GKp], pid_vars[GKi], pid_vars[GKd], 2.5f);
+
                 }
                 else // mode 2 and mode 3 are the same currently
                 {
-                    // level hold mode
+                    // level hold mode (level controlled)
                     // full stick translates to 45 degrees shifted
                     // ang[x] in radiant
                     diff_roll_ang = ang[roll] * 2048.0f / (M_PI / 4.0f) - (float) channels[rc_roll] + MIDDLE_POS; // native middle positions
@@ -360,14 +363,16 @@ int main(void)
                     diff_roll_rate = gy[se_roll] * se_roll_sign * rate[se_roll] + diff_roll_ang;
                     diff_nick_rate = gy[se_nick] * se_nick_sign * rate[se_nick] + diff_nick_ang;
 
-                    roll_set = pid(x, scale_roll, diff_roll_rate, pid_vars[RKp], pid_vars[RKi], pid_vars[RKd], 2.5f);
-                    nick_set = pid(y, scale_nick, diff_nick_rate, pid_vars[NKp], pid_vars[NKi], pid_vars[NKd], 2.5f);
-                }
+                    roll_set = pid(x, scale_roll, diff_roll_rate, l_pid_vars[RKp], l_pid_vars[RKi], l_pid_vars[RKd], 2.5f);
+                    nick_set = pid(y, scale_nick, diff_nick_rate, l_pid_vars[NKp], l_pid_vars[NKi], l_pid_vars[NKd], 2.5f);
 
-                // full stick equals ~250 degrees per second with rate of ~8 (2048 / 250)
-                // gy range goes from 0 - 1000 [DPS]
-                diff_gier_rate = gy[se_gier] * se_gier_sign * rate[se_gier] + (float) channels[rc_gier] - MIDDLE_POS; // control reversed, gy right direction
-                gier_set = pid(z, 1.0f, diff_gier_rate, pid_vars[GKp], pid_vars[GKi], pid_vars[GKd], 2.5f);
+                    // gier is always rate controlled
+                    // full stick equals 250 degrees per second with rate of 8.192 (2048 / 250)
+                    // gy range goes from 0 - 1000 [DPS]
+                    diff_gier_rate = gy[se_gier] * se_gier_sign * rate[se_gier] + (float) channels[rc_gier] - MIDDLE_POS; // control reversed, gy right direction
+                    gier_set = pid(z, 1.0f, diff_gier_rate, l_pid_vars[GKp], l_pid_vars[GKi], l_pid_vars[GKd], 2.5f);
+
+                }
 
                 // max 439 us
                 //millis[1] = HAL_GetTick();
@@ -563,43 +568,43 @@ int main(void)
                     //########### water bubble ################################
 
                     /*
-                    BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-                    BSP_LCD_DrawCircle(xp, yp, 5);
+                     BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+                     BSP_LCD_DrawCircle(xp, yp, 5);
 
-                    BSP_LCD_SetTextColor(LCD_COLOR_RED);
-                    BSP_LCD_DrawHLine(75, 64, 11);
-                    BSP_LCD_DrawVLine(80, 59, 11);
+                     BSP_LCD_SetTextColor(LCD_COLOR_RED);
+                     BSP_LCD_DrawHLine(75, 64, 11);
+                     BSP_LCD_DrawVLine(80, 59, 11);
 
-                    vx = sinf(ang[nick]) * 300.0f;
-                    vy = sinf(ang[roll]) * 300.0f;
+                     vx = sinf(ang[nick]) * 300.0f;
+                     vy = sinf(ang[roll]) * 300.0f;
 
-                    xp = rintf(vx) + 80;
-                    yp = rintf(vy) + 64;
+                     xp = rintf(vx) + 80;
+                     yp = rintf(vy) + 64;
 
-                    if (xp < 5)
-                    {
-                        xp = 5;
-                        vx = 0;
-                    }
-                    if (yp < 5)
-                    {
-                        yp = 5;
-                        vy = 0;
-                    }
-                    if (yp > 122)
-                    {
-                        yp = 122;
-                        vy = 0;
-                    }
-                    if (xp > 154)
-                    {
-                        xp = 154;
-                        vx = 0;
-                    }
+                     if (xp < 5)
+                     {
+                     xp = 5;
+                     vx = 0;
+                     }
+                     if (yp < 5)
+                     {
+                     yp = 5;
+                     vy = 0;
+                     }
+                     if (yp > 122)
+                     {
+                     yp = 122;
+                     vy = 0;
+                     }
+                     if (xp > 154)
+                     {
+                     xp = 154;
+                     vx = 0;
+                     }
 
-                    BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
-                    BSP_LCD_DrawCircle(xp, yp, 5);
-                    */
+                     BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
+                     BSP_LCD_DrawCircle(xp, yp, 5);
+                     */
 
                     //############ end water bubble ###########################
 #endif
@@ -715,7 +720,6 @@ int main(void)
 
             }
 
-
             // For visualization by Processing Software
             //sprintf(buf2, "%3.3f,%3.3f,%3.3f\n", ang[gier], ang[nick], ang[roll]);
 
@@ -726,7 +730,7 @@ int main(void)
             //millis[1] = HAL_GetTick();
             //micros[1] = SysTick->VAL;
 
-             /*
+            /*
              if ( micros[0] > micros[1] )
              {
              sprintf(buf2, "diff: %ld\n", ( micros[0] - micros[1] ) / 72 + 1000 * ( millis[1] - millis[0] ) );
