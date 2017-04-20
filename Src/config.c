@@ -130,7 +130,7 @@ const settings default_settings = {
         SRXL,                                                                      // Receiver type
         { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },                              // padding
 
-        10.5f,
+        10.5f,                                                                     // Bat voltage
         { 0xff, 0xff, 0xff, 0xff },                                                // padding
 
         };
@@ -239,17 +239,17 @@ void analyze_settings(void)
         {
             if (p_settings->sensor_orient[i][j] != 0)
             {
-                if (j == 0) // X vector of Sensor
+                if (j == x) // X vector of Sensor
                 {
                     se_roll = i; // direction the vector points to or opposite direction if sign is negative
                     se_roll_sign = p_settings->sensor_orient[i][j];
                 }
-                else if (j == 1) // Y vector of sensor
+                else if (j == y) // Y vector of sensor
                 {
                     se_nick = i; // direction the vector points to or opposite direction if sign is negative
                     se_nick_sign = p_settings->sensor_orient[i][j];
                 }
-                else if (j == 2) // Z vector of sensor
+                else if (j == z) // Z vector of sensor
                 {
                     se_gier = i; // direction the vector points to or opposite direction if sign is negative
                     se_gier_sign = p_settings->sensor_orient[i][j];
