@@ -118,10 +118,16 @@ void control(int16_t thrust_set, int16_t roll_set, int16_t nick_set, int16_t gie
 
 void halt_reset(void)
 {
-    servos[0] = 4000;
-    servos[1] = 4000;
-    servos[2] = 4000;
-    servos[3] = 4000;
+//    servos[0] = 4000;
+//    servos[1] = 4000;
+//    servos[2] = 4000;
+//    servos[3] = 4000;
+
+    TIM2->CCR1 = 4000;
+    TIM2->CCR2 = 4000;
+    TIM2->CCR3 = 4000;
+    TIM2->CCR4 = 4000;
+
     last_derivative[x] = 0.0f;
     last_derivative[y] = 0.0f;
     last_derivative[z] = 0.0f;

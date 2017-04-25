@@ -85,14 +85,11 @@ DIR directory;
 FATFS SD_FatFs; /* File system object for SD card logical drive */
 float volt1 = 0.0f;
 uint32_t free_ram;
-char buf[50] =
-{ 0 };
-char buf2[100] =
-{ 0 };
+char buf[50] = { 0 };
+char buf2[100] = { 0 };
 const uint8_t flash_top = 255;
 uint32_t free_flash;
 uint32_t tick, prev_tick, dt;
-int xp, yp;
 float vx = 0.0f, vy = 0.0f;
 HAL_StatusTypeDef hal_res;
 uint32_t idle_counter;
@@ -142,6 +139,7 @@ int main(void)
     MX_SPI2_Init();
     MX_TIM2_Init();
     MX_TIM3_Init();
+    MX_TIM4_Init();
 
     /* USER CODE BEGIN 2 */
 
@@ -202,7 +200,6 @@ int main(void)
     // 5   10 Hz
     // 6    5 Hz
 
-    //BSP_MPU_Init(0, 2, 0);
     BSP_MPU_Init(0, 2, 2);
     HAL_Delay(4000); // wait for silence after batteries plugged in
     BSP_MPU_GyroCalibration();
@@ -214,10 +211,6 @@ int main(void)
     BSP_LCD_SetFont(&Font12);
     BSP_LCD_SetTextColor(LCD_COLOR_YELLOW);
     BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
-
-    //for water bubble
-    xp = BSP_LCD_GetXSize() / 2;
-    yp = BSP_LCD_GetYSize() / 2;
 #endif
 
 #ifdef HAVE_SD_CARD
@@ -252,16 +245,19 @@ int main(void)
     }
 #endif
 
-    // start servo pulse generation
-    // pulse finish callback updates length of next pulse
-    HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_1);
-    HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_2);
-    HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_3);
-    HAL_TIM_PWM_Start_IT(&htim2, TIM_CHANNEL_4);
+    // start servo pulse generation no pulse finished interrupt generation
+    HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+    HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
+    HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
+    HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
 
     // not to be enabled until BSP_MPU_GyroCalibration
     // Period elapsed callback sets flag PeriodElapsed
+    // timer 2 generates servo pulses while timer 4 is synchronizing the main loop
     __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_UPDATE);
+
+    // timer 4 is auto started by and synchronized to timer 2 and has n times the frequency of timer 2
+    __HAL_TIM_ENABLE_IT(&htim4, TIM_IT_UPDATE);
 
     // start DMA transferring circular aCCValue_Buffer values to timer3 CCR
     HAL_TIM_PWM_Start_DMA(&htim3, TIM_CHANNEL_3, (uint32_t *) aCCValue_Buffer, NR_LEDS * 24 + 8);
@@ -279,19 +275,12 @@ int main(void)
         // reference probe
         //millis[0] = HAL_GetTick();
         //micros[0] = SysTick->VAL;
-        if (PeriodElapsed == 1) // 400 Hz from servo timer
+        if (PeriodElapsed == 1) // 1.25 kHz from synchronized slave of servo timer, max 1.666... kHz is possible to get round this loop
         {
-            // max 8 us
-            // millis[1] = HAL_GetTick();
-            // micros[1] = SysTick->VAL;
-
             PeriodElapsed = 0;
+
             counter++;
             failsafe_counter++;
-
-            // max 9 us
-            //millis[1] = HAL_GetTick();
-            //micros[1] = SysTick->VAL;
 
             if (RC_RECEIVED == 1)
             {
@@ -299,30 +288,18 @@ int main(void)
                 failsafe_counter = 0;
             }
 
-            // max 9 us
-            //millis[1] = HAL_GetTick();
-            //micros[1] = SysTick->VAL;
-
             BSP_MPU_read_rot();
             BSP_MPU_read_acc();
 
-            // max 122 us
-            //millis[1] = HAL_GetTick();
-            //micros[1] = SysTick->VAL;
-
             // use int values se_roll, se_nick, se_gier as index to map different orientations of the sensor
             BSP_MPU_updateIMU(ac[se_roll] * se_roll_sign, ac[se_nick] * se_nick_sign, ac[se_gier] * se_gier_sign,
-                    gy[se_roll] * se_roll_sign, gy[se_nick] * se_nick_sign, gy[se_gier] * se_gier_sign, 2.5f); // dt 2.5ms
+                    gy[se_roll] * se_roll_sign, gy[se_nick] * se_nick_sign, gy[se_gier] * se_gier_sign, 0.8f); // dt 0.8ms
 
             // then it comes out here properly mapped because Quaternions already changed axes
             BSP_MPU_getEuler(&ang[roll], &ang[nick], &ang[gier]);
 
-            // max 325 us
-            //millis[1] = HAL_GetTick();
-            //micros[1] = SysTick->VAL;
-
             // armed only if arm switch on + not failsafe + not usb connected
-            //if (channels[rc_arm] > H_TRSH && failsafe_counter < 40) // uncommend for test performance while usb connected
+            //if (channels[rc_arm] > H_TRSH && failsafe_counter < 40) // use for test performance while usb connected
             if (channels[rc_arm] > H_TRSH && failsafe_counter < 40 && hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED) // armed, flight mode
             {
                 armed = 1;
@@ -331,23 +308,14 @@ int main(void)
                 {
                     // attitude hold mode (rate controlled)
                     // full stick equals 250 degrees per second with rate[x] of 8.192 (2048 / 250)
-                    // gy range goes from 0 - 1000 [DPS]
+                    // gy range goes from 0 to +-1000 [DPS]
                     diff_roll_rate = gy[se_roll] * se_roll_sign * rate[se_roll] - (float) channels[rc_roll] + MIDDLE_POS; // native middle positions
                     diff_nick_rate = gy[se_nick] * se_nick_sign * rate[se_nick] - (float) channels[rc_nick] + MIDDLE_POS; // rc from -2048 to +2048
-
-                    // max 334 us
-                    //millis[1] = HAL_GetTick();
-                    //micros[1] = SysTick->VAL;
-
-                    roll_set = pid(x, scale_roll, diff_roll_rate, pid_vars[RKp], pid_vars[RKi], pid_vars[RKd], 2.5f);
-                    nick_set = pid(y, scale_nick, diff_nick_rate, pid_vars[NKp], pid_vars[NKi], pid_vars[NKd], 2.5f);
-
-                    // max 403 us
-                    //millis[1] = HAL_GetTick();
-                    //micros[1] = SysTick->VAL;
-
                     diff_gier_rate = gy[se_gier] * se_gier_sign * rate[se_gier] + (float) channels[rc_gier] - MIDDLE_POS; // control reversed, gy right direction
-                    gier_set = pid(z, 1.0f, diff_gier_rate, pid_vars[GKp], pid_vars[GKi], pid_vars[GKd], 2.5f);
+
+                    roll_set += pid(x, scale_roll, diff_roll_rate, pid_vars[RKp], pid_vars[RKi], pid_vars[RKd], 0.8f);
+                    nick_set += pid(y, scale_nick, diff_nick_rate, pid_vars[NKp], pid_vars[NKi], pid_vars[NKd], 0.8f);
+                    gier_set += pid(z, 1.0f, diff_gier_rate, pid_vars[GKp], pid_vars[GKi], pid_vars[GKd], 0.8f);
 
                 }
                 else // mode 2 and mode 3 are the same currently
@@ -360,39 +328,41 @@ int main(void)
 
                     // calculate errors of roll rate and nick rate from errors of roll angle and nick angle scaled by 1.0f (P only control)
                     // i.e. using angle error as setpoint for rate instead of input from RC
-                    diff_roll_rate = gy[se_roll] * se_roll_sign * rate[se_roll] + diff_roll_ang;
-                    diff_nick_rate = gy[se_nick] * se_nick_sign * rate[se_nick] + diff_nick_ang;
-
-                    roll_set = pid(x, scale_roll, diff_roll_rate, l_pid_vars[RKp], l_pid_vars[RKi], l_pid_vars[RKd], 2.5f);
-                    nick_set = pid(y, scale_nick, diff_nick_rate, l_pid_vars[NKp], l_pid_vars[NKi], l_pid_vars[NKd], 2.5f);
-
                     // gier is always rate controlled
                     // full stick equals 250 degrees per second with rate of 8.192 (2048 / 250)
-                    // gy range goes from 0 - 1000 [DPS]
+                    diff_roll_rate = gy[se_roll] * se_roll_sign * rate[se_roll] + diff_roll_ang;
+                    diff_nick_rate = gy[se_nick] * se_nick_sign * rate[se_nick] + diff_nick_ang;
                     diff_gier_rate = gy[se_gier] * se_gier_sign * rate[se_gier] + (float) channels[rc_gier] - MIDDLE_POS; // control reversed, gy right direction
-                    gier_set = pid(z, 1.0f, diff_gier_rate, l_pid_vars[GKp], l_pid_vars[GKi], l_pid_vars[GKd], 2.5f);
 
+                    roll_set += pid(x, scale_roll, diff_roll_rate, l_pid_vars[RKp], l_pid_vars[RKi], l_pid_vars[RKd], 0.8f);
+                    nick_set += pid(y, scale_nick, diff_nick_rate, l_pid_vars[NKp], l_pid_vars[NKi], l_pid_vars[NKd], 0.8);
+                    gier_set += pid(z, 1.0f, diff_gier_rate, l_pid_vars[GKp], l_pid_vars[GKi], l_pid_vars[GKd], 0.8f);
                 }
-
-                // max 439 us
-                //millis[1] = HAL_GetTick();
-                //micros[1] = SysTick->VAL;
 
                 // scale thrust channel to have space for governor if max thrust is set
                 thrust_set = rintf((float) channels[rc_thrust] * 0.85f) + LOW_OFFS; // native middle position and 134 % are set
                 //thrust_set = (int16_t) channels[rc_thrust] + LOW_OFFS; // native middle position and 134 % are set
 
-                // max 442 us
-                //millis[1] = HAL_GetTick();
-                //micros[1] = SysTick->VAL;
+                if (ServoPeriodElapsed == 1) // average control values from n Periods of control calculation
+                {
+                    ServoPeriodElapsed = 0;
 
-                control(thrust_set, roll_set, nick_set, gier_set);
-                // assured finished before first servo update by HAL_TIM_PWM_PulseFinishedCallback (1000 us)
+                    roll_set /= 3;
+                    nick_set /= 3;
+                    gier_set /= 3;
 
-                // max 488 us if all channels are inverted and receiver repeat rate 5ms
-                //millis[1] = HAL_GetTick();
-                //micros[1] = SysTick->VAL;
+                    control(thrust_set, roll_set, nick_set, gier_set);
 
+                    TIM2->CCR1 = servos[0];
+                    TIM2->CCR2 = servos[1];
+                    TIM2->CCR3 = servos[2];
+                    TIM2->CCR4 = servos[3];
+
+                    // reset sum of control values
+                    roll_set = 0;
+                    nick_set = 0;
+                    gier_set = 0;
+                }
             }
             else // not armed or fail save or USB connected, motor stop except if motor test running
             {
@@ -449,7 +419,6 @@ int main(void)
             } // not armed
 
             // do it in time pieces
-            // any of 8 slots will be repeated at 25Hz ( 40ms ) and may last at least 4ms
             if (counter >= 8) // Program With Display, Flight Display and LED State Change Slot
             {
                 counter = 0;
@@ -564,50 +533,6 @@ int main(void)
 #endif
                         back_armed = armed;
                     }
-#ifdef HAVE_DISPLAY
-                    //########### water bubble ################################
-
-                    /*
-                     BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-                     BSP_LCD_DrawCircle(xp, yp, 5);
-
-                     BSP_LCD_SetTextColor(LCD_COLOR_RED);
-                     BSP_LCD_DrawHLine(75, 64, 11);
-                     BSP_LCD_DrawVLine(80, 59, 11);
-
-                     vx = sinf(ang[nick]) * 300.0f;
-                     vy = sinf(ang[roll]) * 300.0f;
-
-                     xp = rintf(vx) + 80;
-                     yp = rintf(vy) + 64;
-
-                     if (xp < 5)
-                     {
-                     xp = 5;
-                     vx = 0;
-                     }
-                     if (yp < 5)
-                     {
-                     yp = 5;
-                     vy = 0;
-                     }
-                     if (yp > 122)
-                     {
-                     yp = 122;
-                     vy = 0;
-                     }
-                     if (xp > 154)
-                     {
-                     xp = 154;
-                     vx = 0;
-                     }
-
-                     BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
-                     BSP_LCD_DrawCircle(xp, yp, 5);
-                     */
-
-                    //############ end water bubble ###########################
-#endif
                 }
             }
 
@@ -672,7 +597,10 @@ int main(void)
 
             if (counter == 4)  // Warning Slot
             {
-                led_blink_counter = led_blink_counter == 1 ? 2 : 1;
+                if (led_blink_counter++ > 10)
+                {
+                    led_blink_counter = 0;
+                }
 
                 if ((low_volt == 1 || channels[rc_beep] > L_TRSH) && hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED)
                 {
@@ -683,7 +611,7 @@ int main(void)
 
                 if (warning == 1)
                 {
-                    if (led_blink_counter == 2)
+                    if (led_blink_counter <= 5)
                     {
                         // blink OFF
                         led_set_off(0, NR_LEDS);
@@ -707,17 +635,17 @@ int main(void)
 
             if (counter == 3)
             {
-
+                // Baro
             }
 
             if (counter == 2)
             {
-
+                // GPS
             }
 
             if (counter == 1)
             {
-
+                // some else
             }
 
             // For visualization by Processing Software
@@ -726,7 +654,7 @@ int main(void)
             //sprintf(buf2, "%ld\n", idle_counter);
             //CDC_Transmit_FS((uint8_t*) buf2, strlen(buf2));
 
-            // max 4510 us in water bubble period
+            // max 541 us without screen updates when armed, plenty of time for idle_counter
             //millis[1] = HAL_GetTick();
             //micros[1] = SysTick->VAL;
 
@@ -755,7 +683,6 @@ int main(void)
         else
         {
             idle_counter++;
-            // min 723 now with running SRXL receiving
         }
 
     } //while(1)

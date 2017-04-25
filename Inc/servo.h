@@ -9,6 +9,7 @@
 
 volatile uint16_t servos[4];
 volatile uint8_t PeriodElapsed;
+volatile uint8_t ServoPeriodElapsed;
 
 #ifdef __cplusplus
 }

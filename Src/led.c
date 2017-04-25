@@ -34,41 +34,57 @@ void led_rotate_right(uint8_t from, uint8_t to)
 {
     uint8_t i;
 
-    led_tmp_val[G] = led_val[to][G];
-    led_tmp_val[R] = led_val[to][R];
-    led_tmp_val[B] = led_val[to][B];
+    static uint8_t count;
 
-    for (i = to; i > from; i--)
+    if (count++ > 4)
     {
-        led_val[i][G] = led_val[i - 1][G];
-        led_val[i][R] = led_val[i - 1][R];
-        led_val[i][B] = led_val[i - 1][B];
+        count = 0;
+
+        led_tmp_val[G] = led_val[to][G];
+        led_tmp_val[R] = led_val[to][R];
+        led_tmp_val[B] = led_val[to][B];
+
+        for (i = to; i > from; i--)
+        {
+            led_val[i][G] = led_val[i - 1][G];
+            led_val[i][R] = led_val[i - 1][R];
+            led_val[i][B] = led_val[i - 1][B];
+        }
+
+        led_val[from][G] = led_tmp_val[G];
+        led_val[from][R] = led_tmp_val[R];
+        led_val[from][B] = led_tmp_val[B];
+
+       // led_trans_vals();
     }
-
-    led_val[from][G] = led_tmp_val[G];
-    led_val[from][R] = led_tmp_val[R];
-    led_val[from][B] = led_tmp_val[B];
-
-    led_trans_vals();
 }
 
 void led_rotate_left(uint8_t from, uint8_t to)
 {
     uint8_t i;
 
-    led_tmp_val[G] = led_val[from][G];
-    led_tmp_val[R] = led_val[from][R];
-    led_tmp_val[B] = led_val[from][B];
+    static uint8_t count;
 
-    for (i = from; i < to; i++)
+    if (count++ > 4)
     {
-        led_val[i][G] = led_val[i + 1][G];
-        led_val[i][R] = led_val[i + 1][R];
-        led_val[i][B] = led_val[i + 1][B];
+        count = 0;
+
+        led_tmp_val[G] = led_val[from][G];
+        led_tmp_val[R] = led_val[from][R];
+        led_tmp_val[B] = led_val[from][B];
+
+        for (i = from; i < to; i++)
+        {
+            led_val[i][G] = led_val[i + 1][G];
+            led_val[i][R] = led_val[i + 1][R];
+            led_val[i][B] = led_val[i + 1][B];
+        }
+        led_val[to][G] = led_tmp_val[G];
+        led_val[to][R] = led_tmp_val[R];
+        led_val[to][B] = led_tmp_val[B];
+
+       // led_trans_vals();
     }
-    led_val[to][G] = led_tmp_val[G];
-    led_val[to][R] = led_tmp_val[R];
-    led_val[to][B] = led_tmp_val[B];
 
 }
 
