@@ -203,6 +203,7 @@ int main(void)
     BSP_MPU_Init(0, 2, 2);
     HAL_Delay(4000); // wait for silence after batteries plugged in
     BSP_MPU_GyroCalibration();
+    BSP_MPU_AccCalibration(p_settings->acc_offset);
 
 #ifdef HAVE_DISPLAY
     BSP_LCD_Init();

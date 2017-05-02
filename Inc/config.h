@@ -115,7 +115,10 @@ typedef struct {
     int8_t pad9[7];     // 1 + 7 = 8
 
     float low_voltage;
-    int8_t pad10[4];     // 4 + 4 = 8
+    int8_t pad10[4];    // 4 + 4 = 8
+
+    int32_t acc_offset[3];
+    int8_t pad11[4];    // 3 * 4 + 4 = 16
 
 } settings;
 

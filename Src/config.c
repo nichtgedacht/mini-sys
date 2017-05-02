@@ -88,7 +88,10 @@ const settings default_settings = {
     uint8_t receiver;
     int8_t pad9[7];     // 1 + 7 = 8
     float low_voltage;
-    int8_t pad10[4];     // 4 + 4 = 8
+    int8_t pad10[4];    // 4 + 4 = 8
+    int32_t acc_offset[3];
+    int8_t pad11[4];    // 3 * 4 + 4 = 16
+
 */
 
 // new 8 bytes alignment
@@ -131,6 +134,9 @@ const settings default_settings = {
         { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },                              // padding
 
         10.5f,                                                                     // Bat voltage
+        { 0xff, 0xff, 0xff, 0xff },                                                // padding
+
+        { 0, 0, 0 },                                                               // ACC Offset
         { 0xff, 0xff, 0xff, 0xff },                                                // padding
 
         };
@@ -379,6 +385,31 @@ void config_state_switch(const char *cmd)
 
         //HAL_NVIC_SystemReset(); // shall we reboot right now?
     }
+    else if (strcmp(cmd, "cal_acc") == 0)
+    {
+        // Once calibrated one can not simply write 0 values to the
+        // cancellation registers to have the device like after a reboot.
+        // So reinitialize it here.
+        BSP_MPU_Init(0, 2, 2);
+        BSP_MPU_GyroCalibration();
+        BSP_Get_MPU_Acc_Offset(p_settings->acc_offset);
+        BSP_MPU_AccCalibration(p_settings->acc_offset);
+
+        // save offset values in settings page
+        if (erase_flash_page() != HAL_OK)
+        {
+            Error_Handler();
+        }
+        else
+        {
+            if (write_flash_vars((uint32_t*) flash_buf, 256, 0) != HAL_OK)
+            {
+                Error_Handler();
+            }
+        }
+
+        CDC_Reset_Receive();
+    }
     /*
      else if (strcmp(cmd, "suspend") == 0)
      {
@@ -494,6 +525,7 @@ void config_state_switch(const char *cmd)
 void receive_settings(void)
 {
     char buf[20];
+    settings *p_settings;
 
     if (cdc_received_tot < 1024)
     {

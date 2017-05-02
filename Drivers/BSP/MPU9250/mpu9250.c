@@ -8,7 +8,7 @@ static float invSqrt(float x);
 //#define twoKiDef        (2.0f * 0.8f)   // 2 * integral gain
 
 //#define twoKpDef        (2.0f * 1.0f)   // 2 * proportional gain
-#define twoKiDef        (2.0f * 0.5f)   // 2 * integral gain
+//#define twoKiDef        (2.0f * 0.5f)   // 2 * integral gain
 
 #define twoKiDef        (2.0f * 0.0f)   // 2 * integral gain
 //#define twoKpDef        (2.0f * 0.5f)   // 2 * proportional gain
@@ -68,7 +68,7 @@ uint8_t BSP_MPU_Init(uint8_t sample_rate_div, uint8_t GY_low_pass_filter, uint8_
         HAL_Delay(1);  //I2C must slow down the write speed, otherwise it won't work
     }
 
-    BSP_MPU_set_acc_scale(BITS_FS_2G);
+    BSP_MPU_set_acc_scale(BITS_FS_4G);
     BSP_MPU_set_gyro_scale(BITS_FS_1000DPS);
 
     return 0;
@@ -106,7 +106,7 @@ uint8_t BSP_MPU_set_acc_scale(uint8_t scale)
     }
     temp_scale = MPU_IO_WriteReadReg(MPUREG_ACCEL_CONFIG | READ_FLAG, 0x00);
 
-    switch (temp_scale)
+    switch (temp_scale & 0x18)
     {
     case BITS_FS_2G:
         temp_scale = 2;
@@ -144,7 +144,7 @@ uint16_t BSP_MPU_set_gyro_scale(uint8_t scale)
         break;
     }
     temp_scale = MPU_IO_WriteReadReg(MPUREG_GYRO_CONFIG | READ_FLAG, 0x00);
-    switch (temp_scale)
+    switch (temp_scale & 0x18)
     {
     case BITS_FS_250DPS:
         temp_scale = 250;
@@ -262,7 +262,7 @@ void BSP_MPU_updateIMU(float ax, float ay, float az, float gx, float gy, float g
     if (!((ax == 0.0f) && (ay == 0.0f) && (az == 0.0f)))
     {
 
-        // Normalise accelerometer measurement
+        // Normalize accelerometer measurement
         recipNorm = invSqrt(ax * ax + ay * ay + az * az);
         ax *= recipNorm;
         ay *= recipNorm;
@@ -314,7 +314,7 @@ void BSP_MPU_updateIMU(float ax, float ay, float az, float gx, float gy, float g
     q2 += (qa * gy - qb * gz + q3 * gx);
     q3 += (qa * gz + qb * gy - qc * gx);
 
-    // Normalise quaternion
+    // Normalize quaternion
     recipNorm = invSqrt(q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3);
     q0 *= recipNorm;
     q1 *= recipNorm;
@@ -406,3 +406,89 @@ void BSP_MPU_GyroCalibration(void)
     BSP_MPU_WriteRegs(MPUREG_ZG_OFFS_USRH, (uint8_t*) &data[4], 2);
 }
 
+void BSP_Get_MPU_Acc_Offset(int32_t *acc_offset)
+{
+    uint8_t i, j;
+    uint8_t response[6], divider;
+
+    for (j = 0; j < 100; j++)
+    {
+        BSP_MPU_ReadRegs(MPUREG_ACCEL_XOUT_H, response, 6);
+        for (i = x; i <= z; i++)
+        {
+            acc_offset[i] += ((int32_t) response[i * 2] << 8) | response[i * 2 + 1];
+        }
+        HAL_Delay(10);
+    }
+
+    divider = MPU_IO_WriteReadReg(MPUREG_ACCEL_CONFIG | READ_FLAG, 0x00);
+    divider &= 0x18;
+
+    switch (divider)
+    {
+    case BITS_FS_2G:
+        divider = 8;
+        break;
+    case BITS_FS_4G:
+        divider = 4;
+        break;
+    case BITS_FS_8G:
+        divider = 2;
+        break;
+    case BITS_FS_16G:
+        divider = 1;
+        break;
+    }
+
+    // offset register referred to 16G (against example from Invensense which says 8G)
+    acc_offset[x] /= (int32_t) (100 * divider);
+    acc_offset[y] /= (int32_t) (100 * divider);
+    acc_offset[z] /= (int32_t) (100 * divider);
+
+    // One axis must be very near to vertical, subtract value for 1G from it
+    for ( i=0; i<=2; i++)
+    {
+        if ( fabsf( acc_offset[i] ) > 1000 )
+        {
+            if ( acc_offset[i] > 1000 )
+            {
+                acc_offset[i] -= 2048;
+            }
+            else if ( acc_offset[i] < 1000 )
+            {
+                acc_offset[i] += 2048;
+            }
+        }
+    }
+}
+
+void BSP_MPU_AccCalibration(int32_t *acc_offset)
+{
+    uint8_t bias_data[6] = { 0, 0, 0, 0, 0, 0 };
+    int16_t bias[3] = { 0, 0, 0 };
+    uint8_t data[6] = { 0, 0, 0, 0, 0, 0 };
+
+    BSP_MPU_ReadRegs(MPUREG_XA_OFFSET_H, (uint8_t*) &bias_data[0], 2);
+    BSP_MPU_ReadRegs(MPUREG_YA_OFFSET_H, (uint8_t*) &bias_data[2], 2);
+    BSP_MPU_ReadRegs(MPUREG_ZA_OFFSET_H, (uint8_t*) &bias_data[4], 2);
+
+    bias[0] = ((int16_t)bias_data[0]<<8) | bias_data[1];
+    bias[1] = ((int16_t)bias_data[2]<<8) | bias_data[3];
+    bias[2] = ((int16_t)bias_data[4]<<8) | bias_data[5];
+
+    bias[0] -= (acc_offset[0] & ~1);
+    bias[1] -= (acc_offset[1] & ~1);
+    bias[2] -= (acc_offset[2] & ~1);
+
+    // swapped bytes
+    data[0] = (bias[x] >> 8) & 0xFF;
+    data[1] = bias[x] & 0xFF;
+    data[2] = (bias[y] >> 8) & 0xFF;
+    data[3] = bias[y] & 0xFF;
+    data[4] = (bias[z] >> 8) & 0xFF;
+    data[5] = bias[z] & 0xFF;
+
+    BSP_MPU_WriteRegs(MPUREG_XA_OFFSET_H, (uint8_t*) &data[0], 2);
+    BSP_MPU_WriteRegs(MPUREG_YA_OFFSET_H, (uint8_t*) &data[2], 2);
+    BSP_MPU_WriteRegs(MPUREG_ZA_OFFSET_H, (uint8_t*) &data[4], 2);
+}

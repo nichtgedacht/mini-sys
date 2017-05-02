@@ -33,6 +33,8 @@ void    BSP_MPU_read_acc();
 void    BSP_MPU_updateIMU(float ax, float ay, float az, float gx, float gy, float gz, float dt);
 void    BSP_MPU_getEuler(float* roll, float* pitch, float* yaw);
 void    BSP_MPU_GyroCalibration(void);
+void    BSP_MPU_AccCalibration(int32_t* acc_offset);
+void    BSP_Get_MPU_Acc_Offset(int32_t* acc_offset);
 
 #define G_SI 9.80665
 
