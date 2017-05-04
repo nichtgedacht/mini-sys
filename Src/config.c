@@ -394,6 +394,7 @@ void config_state_switch(const char *cmd)
         // cancellation registers to have the device like after a reboot.
         // So reinitialize it here.
         BSP_MPU_Init(0, 2, 2);
+        // Calibration of gyros gets lost after initialization, cosmetics
         BSP_MPU_GyroCalibration();
         BSP_Get_MPU_Acc_Offset(p_settings->acc_offset);
         BSP_MPU_AccCalibration(p_settings->acc_offset);
