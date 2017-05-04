@@ -10,8 +10,8 @@
 #include "rc.h"
 #include "mpu9250.h"
 
-//#define HAVE_DISPLAY
-//#define HAVE_SD_CARD
+// #define HAVE_DISPLAY
+// #define HAVE_SD_CARD
 
 #define L_TRSH 1400
 #define H_TRSH 2700

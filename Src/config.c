@@ -320,6 +320,13 @@ void load_default_settings(void)
 
 void start_bootloader(void)
 {
+    // write a flag to last 32 bit wide space of ram
+    // so reborn as bootloader we can know that we should not start this live immediately again
+    // end of stack is shifted 8 bytes down by linker script
+    // bootloader code will not initialize this location
+
+    __DSB();
+    *((unsigned long *)(0x20004ff8)) = 0xDB1953DB;
     HAL_NVIC_SystemReset();
 }
 
@@ -329,14 +336,10 @@ void config_state_switch(const char *cmd)
 
     if (strcmp(cmd, "reboot") == 0)
     {
-        start_bootloader();
+        HAL_NVIC_SystemReset();
     }
     else if (strcmp(cmd, "bootloader") == 0)
     {
-        //setting flag in flash
-        //so reborn as bootloader we can know that we should not start this live immediately again
-        // write string "DFU" (4 bytes incl. trailing \0) to last 32 bit wide space of flash page
-        write_flash_vars((uint32_t*) "DFU", 1, 1020);
         start_bootloader();
     }
     else if (strcmp(cmd, "push_settings") == 0)
