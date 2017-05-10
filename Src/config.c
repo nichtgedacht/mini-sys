@@ -515,6 +515,11 @@ void config_state_switch(const char *cmd)
         servos[motor3_tim_ch] = atoi(strtok(NULL, ","));
         servos[motor4_tim_ch] = atoi(strtok(NULL, ","));
 
+        TIM2->CCR1 = servos[0];
+        TIM2->CCR2 = servos[1];
+        TIM2->CCR3 = servos[2];
+        TIM2->CCR4 = servos[3];
+
         sprintf(buf, "motors_receipt\n");
         CDC_Transmit_FS((uint8_t*) buf, strlen(buf));
 

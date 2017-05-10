@@ -4,15 +4,8 @@
 
 static float invSqrt(float x);
 
-//#define twoKpDef        (2.0f * 8.0f)   // 2 * proportional gain
-//#define twoKiDef        (2.0f * 0.8f)   // 2 * integral gain
-
-//#define twoKpDef        (2.0f * 1.0f)   // 2 * proportional gain
 //#define twoKiDef        (2.0f * 0.5f)   // 2 * integral gain
-
 #define twoKiDef        (2.0f * 0.0f)   // 2 * integral gain
-//#define twoKpDef        (2.0f * 0.5f)   // 2 * proportional gain
-
 #define twoKpDef        (2.0f * 0.5f)   // 2 * proportional gain
 
 float twoKp = twoKpDef;                                             // 2 * proportional gain (Kp)
@@ -357,7 +350,7 @@ void BSP_MPU_GyroCalibration(void)
     int32_t offset[3] = { 0, 0, 0 };
     uint8_t data[6] = { 0, 0, 0, 0, 0, 0 };
 
-    for (j = 0; j < 100; j++)
+    for (j = 0; j < 200; j++)
     {
         BSP_MPU_ReadRegs(MPUREG_GYRO_XOUT_H, response, 6);
         for (i = x; i <= z; i++)
@@ -365,7 +358,7 @@ void BSP_MPU_GyroCalibration(void)
             offset_tmp[i] = ((int16_t) response[i * 2] << 8) | response[i * 2 + 1];
             offset[i] -= (int32_t) offset_tmp[i];
         }
-        HAL_Delay(10);
+        HAL_Delay(5);
     }
 
     divider = MPU_IO_WriteReadReg(MPUREG_GYRO_CONFIG | READ_FLAG, 0x00);
@@ -390,14 +383,14 @@ void BSP_MPU_GyroCalibration(void)
 
     // offset register referred to 1000 DPS
     // From Invensense Motion Driver, avoid round errors
-    offset[x] = (int32_t) ( ( (int64_t) offset[x] ) / divider / 50 );
-    offset[y] = (int32_t) ( ( (int64_t) offset[y] ) / divider / 50 );
-    offset[z] = (int32_t) ( ( (int64_t) offset[z] ) / divider / 50 );
+    offset[x] = (int32_t) ( ( (int64_t) offset[x] ) / divider / 100 );
+    offset[y] = (int32_t) ( ( (int64_t) offset[y] ) / divider / 100 );
+    offset[z] = (int32_t) ( ( (int64_t) offset[z] ) / divider / 100 );
 
     // This works too
-    //offset[x] /= (int32_t) (50 * divider);
-    //offset[y] /= (int32_t) (50 * divider);
-    //offset[z] /= (int32_t) (50 * divider);
+    //offset[x] /= (int32_t) (100 * divider);
+    //offset[y] /= (int32_t) (100 * divider);
+    //offset[z] /= (int32_t) (100 * divider);
 
     // swapped bytes
     data[0] = (offset[x] >> 8) & 0xFF;
@@ -417,9 +410,8 @@ void BSP_Get_MPU_Acc_Offset(int32_t *acc_offset)
     uint8_t i, j;
     uint8_t response[6], divider;
     int16_t acc_offset_tmp[3] ;
-    char buf[20];
 
-    for (j = 0; j < 100; j++)
+    for (j = 0; j < 200; j++)
     {
         BSP_MPU_ReadRegs(MPUREG_ACCEL_XOUT_H, response, 6);
         for (i = x; i <= z; i++)
@@ -428,7 +420,7 @@ void BSP_Get_MPU_Acc_Offset(int32_t *acc_offset)
             acc_offset[i] += (int32_t) acc_offset_tmp[i];
         }
 
-        HAL_Delay(10);
+        HAL_Delay(5);
     }
 
     divider = MPU_IO_WriteReadReg(MPUREG_ACCEL_CONFIG | READ_FLAG, 0x00);
@@ -452,15 +444,15 @@ void BSP_Get_MPU_Acc_Offset(int32_t *acc_offset)
 
     // offset register referred to 16G (against example from Invensense which says 8G)
     // from Invensense Motion Driver, avoid round errors
-    acc_offset[x] = (int32_t) ( ( (int64_t) acc_offset[x] ) / divider / 100 );
-    acc_offset[y] = (int32_t) ( ( (int64_t) acc_offset[y] ) / divider / 100 );
-    acc_offset[z] = (int32_t) ( ( (int64_t) acc_offset[z] ) / divider / 100 );
+    acc_offset[x] = (int32_t) ( ( (int64_t) acc_offset[x] ) / divider / 200 );
+    acc_offset[y] = (int32_t) ( ( (int64_t) acc_offset[y] ) / divider / 200 );
+    acc_offset[z] = (int32_t) ( ( (int64_t) acc_offset[z] ) / divider / 200 );
 
     /*
      * this works too
-    acc_offset[x] /= (int32_t) (100 * divider);
-    acc_offset[y] /= (int32_t) (100 * divider);
-    acc_offset[z] /= (int32_t) (100 * divider);
+    acc_offset[x] /= (int32_t) (200 * divider);
+    acc_offset[y] /= (int32_t) (200 * divider);
+    acc_offset[z] /= (int32_t) (200 * divider);
     */
 
     // One axis must be very near to vertical, subtract value for 1G from it

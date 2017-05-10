@@ -267,7 +267,7 @@ uint8_t Buffercmp(uint8_t* pBuffer1, uint8_t* pBuffer2, uint16_t BufferLength)
 uint8_t TFT_DisplayImages(uint8_t x, uint16_t y, const char* fname, char* msg)
 {
     uint32_t bmplen = 0x00;
-    uint32_t nfiles = 0x00;
+    //uint32_t nfiles = 0x00;
     uint32_t checkstatus = 0x00;
     uint8_t str[20];
     DIR directory;
