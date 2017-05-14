@@ -74,7 +74,7 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
                                 
 
 /* USER CODE BEGIN Prototypes */
-
+void MX_OneShot_TIM2_Init(void);
 /* USER CODE END Prototypes */
 
 #ifdef __cplusplus

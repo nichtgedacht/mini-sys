@@ -2,69 +2,6 @@
 #include "flash.h"
 
 /*
- uint8_t magic;
- uint8_t pad1;
- uint8_t pad2;
- uint8_t pad3;
- float pidvars[9];
- float l_pidvars[9];
- float rate[3];
- motor motor_1;
- motor motor_2;
- motor motor_3;
- motor motor_4;
- matrix sensor_orient;
- uint8_t pad4;
- uint8_t pad5;
- uint8_t pad6;
- float aspect_ratio;
- rc_channel rc_func[13];
- uint8_t pad7;
- rc_channel rc_ch[13];
- uint8_t pad8;
- uint8_t receiver;
- uint8_t pad9;
- uint8_t pad10;
- uint8_t pad11;
- float low_voltage;
- */
-
-/*
-// see members of structure above
-const settings default_settings = {
-        0xdb,   // magic
-        0xff,   // padding
-        0xff,   // padding
-        0xff,   // padding
-        { 0.24f, 1.5f, 0.004f, 0.24f, 1.5f, 0.004f, 0.5f, 1.5f, 0.001f },  // pid_vars
-        { 0.1f, 0.03f, 0.02f, 0.1f, 0.03f, 0.02f, 1.0f, 1.5f, 0.001f },    // l_pid_vars
-        { 250.0f, 250.0f, 250.0f },  // rate
-        { CCW, 1 },  // motor_1
-        { CW, 2 },   // motor_2
-        { CW, 3 },   // motor_3
-        { CCW, 4 },  // motor_4
-        { // Front   Left   Top   //sensor_orient
-        {     1,      0,     0 }, // x
-        {     0,      1,     0 }, // y
-        {     0,      0,     1 }  // z
-        },
-        0xff,  // padding
-        0xff,  // padding
-        0xff,  // padding
-        1.0f,  // aspect_ratio
-        { {0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0}, {5, 0}, {6, 0}, {7, 0}, {8, 0}, {9, 0}, {10, 0}, {11, 0}, {12, 0} }, // rc_func
-        0xff,  // padding
-        { {0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0}, {5, 0}, {6, 0}, {7, 0}, {8, 0}, {9, 0}, {10, 0}, {11, 0}, {12, 0} }, // rc_ch
-        0xff,  // padding
-        SRXL,  // Receiver type
-        0xff,  // padding
-        0xff,  // padding
-        0xff,  // padding
-        10.5f
-        };
-*/
-
-/*
     uint8_t magic;
     uint8_t pad1[7];    // 1 + 7 = 8
     float pidvars[9];
@@ -91,10 +28,11 @@ const settings default_settings = {
     int8_t pad10[4];    // 4 + 4 = 8
     int32_t acc_offset[3];
     int8_t pad11[4];    // 3 * 4 + 4 = 16
-
+    uint8_t esc_mode;
+    int8_t pad12[7];     // 1 + 7 = 8
 */
 
-// new 8 bytes alignment
+// 8 bytes alignment
 // see members of structure above
 const settings default_settings = {
         0xdb,   // magic
@@ -138,6 +76,9 @@ const settings default_settings = {
 
         { 0, 0, 0 },                                                               // ACC Offset
         { 0xff, 0xff, 0xff, 0xff },                                                // padding
+
+        STD,
+        { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },                              // padding
 
         };
 
@@ -193,6 +134,9 @@ uint8_t live_receipt = 0;
 uint8_t channels_receipt = 0;
 
 float low_voltage;
+
+uint8_t esc_mode = 0;
+
 
 void check_settings_page(void)
 {
@@ -297,6 +241,8 @@ void analyze_settings(void)
     }
 
     low_voltage = p_settings->low_voltage;
+
+    esc_mode = p_settings->esc_mode;
 }
 
 void load_default_settings(void)
@@ -514,6 +460,14 @@ void config_state_switch(const char *cmd)
         servos[motor2_tim_ch] = atoi(strtok(NULL, ","));
         servos[motor3_tim_ch] = atoi(strtok(NULL, ","));
         servos[motor4_tim_ch] = atoi(strtok(NULL, ","));
+
+        if ( esc_mode == ONES )
+        {
+            servos[motor1_tim_ch] = ( servos[motor1_tim_ch] * 3) / 4;
+            servos[motor2_tim_ch] = ( servos[motor2_tim_ch] * 3) / 4;
+            servos[motor3_tim_ch] = ( servos[motor3_tim_ch] * 3) / 4;
+            servos[motor4_tim_ch] = ( servos[motor4_tim_ch] * 3) / 4;
+        }
 
         TIM2->CCR1 = servos[0];
         TIM2->CCR2 = servos[1];

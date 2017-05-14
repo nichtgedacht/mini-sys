@@ -36,6 +36,8 @@ enum { r_thrust = 1,
        r_aux3 = 12
      };
 
+enum { STD, ONES }; // ESC type index
+
 typedef struct
 {
     int8_t rotational_direction;
@@ -120,6 +122,9 @@ typedef struct {
     int32_t acc_offset[3];
     int8_t pad11[4];    // 3 * 4 + 4 = 16
 
+    uint8_t esc_mode;
+    int8_t pad12[7];     // 1 + 7 = 8
+
 } settings;
 
 extern const settings default_settings;
@@ -174,6 +179,8 @@ extern uint8_t live_receipt;
 extern uint8_t channels_receipt;
 
 extern float low_voltage;
+
+extern uint8_t esc_mode;
 
 // example:
 // cannels[rc_thrust];

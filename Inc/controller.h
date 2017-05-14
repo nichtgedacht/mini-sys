@@ -48,7 +48,7 @@ extern const float GKd;
 //enum { RKp, RKi, RKd, NKp, NKi, NKd, GKp, GKi, GKd };
 
 int16_t pid(uint8_t axis, float scale, float error, float Kp, float Ki, float Kd, float dt);
-void control(int16_t thrust_set, int16_t roll_set, int16_t nick_set, int16_t gier_set);
+void control(int16_t thrust_set, int16_t roll_set, int16_t nick_set, int16_t gier_set, uint8_t esc_mode );
 void halt_reset(void);
 
 #ifdef __cplusplus

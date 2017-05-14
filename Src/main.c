@@ -85,8 +85,10 @@ DIR directory;
 FATFS SD_FatFs; /* File system object for SD card logical drive */
 float volt1 = 0.0f;
 uint32_t free_ram;
-char buf[50] = { 0 };
-char buf2[100] = { 0 };
+char buf[50] =
+{ 0 };
+char buf2[100] =
+{ 0 };
 const uint8_t flash_top = 255;
 uint32_t free_flash;
 uint32_t tick, prev_tick, dt;
@@ -137,7 +139,6 @@ int main(void)
     MX_ADC1_Init();
     MX_USB_DEVICE_Init();
     MX_SPI2_Init();
-    MX_TIM2_Init();
     MX_TIM3_Init();
     MX_TIM4_Init();
 
@@ -158,6 +159,15 @@ int main(void)
     check_settings_page();
     // feed variables from settings
     analyze_settings();
+
+    if (esc_mode == ONES)
+    {
+        MX_OneShot_TIM2_Init();
+    }
+    else
+    {
+        MX_TIM2_Init();
+    }
 
     if (p_settings->receiver == SBUS)
     {
@@ -246,6 +256,8 @@ int main(void)
     }
 #endif
 
+    HAL_TIM_Base_Start(&htim4);
+
     // start servo pulse generation no pulse finished interrupt generation
     HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
     HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
@@ -258,6 +270,7 @@ int main(void)
     __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_UPDATE);
 
     // timer 4 is auto started by and synchronized to timer 2 and has n times the frequency of timer 2
+    // started by software now, as auto started by enable trigger from timer 2 has no fixed phase. why?
     __HAL_TIM_ENABLE_IT(&htim4, TIM_IT_UPDATE);
 
     // start DMA transferring circular aCCValue_Buffer values to timer3 CCR
@@ -341,18 +354,22 @@ int main(void)
                 }
 
                 // scale thrust channel to have space for governor if max thrust is set
-                thrust_set = rintf((float) channels[rc_thrust] * 0.85f) + LOW_OFFS; // native middle position and 134 % are set
-                //thrust_set = (int16_t) channels[rc_thrust] + LOW_OFFS; // native middle position and 134 % are set
+                thrust_set = rintf((float) channels[rc_thrust] * 0.8f) + LOW_OFFS; // native middle position and 134 % are set, rc from 0 to 4095
 
                 if (ServoPeriodElapsed == 1) // average control values from n Periods of control calculation
                 {
                     ServoPeriodElapsed = 0;
 
-                    roll_set /= 3;
-                    nick_set /= 3;
-                    gier_set /= 3;
+                    // depend on OneShot
+                    // nperiods normal: 2400u / 800u = 3, Oneshot: 800u / 800u = 1
+                    if (esc_mode == STD)
+                    {
+                        roll_set /= 3;
+                        nick_set /= 3;
+                        gier_set /= 3;
+                    }
 
-                    control(thrust_set, roll_set, nick_set, gier_set);
+                    control(thrust_set, roll_set, nick_set, gier_set, esc_mode);
 
                     TIM2->CCR1 = servos[0];
                     TIM2->CCR2 = servos[1];

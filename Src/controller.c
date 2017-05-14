@@ -66,9 +66,8 @@ int16_t pid(uint8_t axis, float scale, float error, float Kp, float Ki, float Kd
     return output;
 }
 
-void control(int16_t thrust_set, int16_t roll_set, int16_t nick_set, int16_t gier_set)
+void control(int16_t thrust_set, int16_t roll_set, int16_t nick_set, int16_t gier_set, uint8_t esc_mode)
 {
-
     // prevents motor stop, hopefully
     gier_set = gier_set < -400 ? -400 : (gier_set > 400 ? 400 : gier_set);
 
@@ -88,14 +87,18 @@ void control(int16_t thrust_set, int16_t roll_set, int16_t nick_set, int16_t gie
     // It is essential that these statements are completed within the current period before
     // the values are taken by HAL_TIM_PWM_PulseFinishedCallback (in servo.c).
     // That is < 1ms since PeriodElapsed flag was set.
-    servos[motor1_tim_ch] =
-            servos[motor1_tim_ch] < 4000 ? 4000 : (servos[motor1_tim_ch] > 8000 ? 8000 : servos[motor1_tim_ch]);
-    servos[motor2_tim_ch] =
-            servos[motor2_tim_ch] < 4000 ? 4000 : (servos[motor2_tim_ch] > 8000 ? 8000 : servos[motor2_tim_ch]);
-    servos[motor3_tim_ch] =
-            servos[motor3_tim_ch] < 4000 ? 4000 : (servos[motor3_tim_ch] > 8000 ? 8000 : servos[motor3_tim_ch]);
-    servos[motor4_tim_ch] =
-            servos[motor4_tim_ch] < 4000 ? 4000 : (servos[motor4_tim_ch] > 8000 ? 8000 : servos[motor4_tim_ch]);
+    servos[motor1_tim_ch] = servos[motor1_tim_ch] < 4000 ? 4000 : (servos[motor1_tim_ch] > 8000 ? 8000 : servos[motor1_tim_ch]);
+    servos[motor2_tim_ch] = servos[motor2_tim_ch] < 4000 ? 4000 : (servos[motor2_tim_ch] > 8000 ? 8000 : servos[motor2_tim_ch]);
+    servos[motor3_tim_ch] = servos[motor3_tim_ch] < 4000 ? 4000 : (servos[motor3_tim_ch] > 8000 ? 8000 : servos[motor3_tim_ch]);
+    servos[motor4_tim_ch] = servos[motor4_tim_ch] < 4000 ? 4000 : (servos[motor4_tim_ch] > 8000 ? 8000 : servos[motor4_tim_ch]);
+
+    if ( esc_mode == ONES )
+    {
+        servos[motor1_tim_ch] = ( servos[motor1_tim_ch] * 3) / 4;
+        servos[motor2_tim_ch] = ( servos[motor2_tim_ch] * 3) / 4;
+        servos[motor3_tim_ch] = ( servos[motor3_tim_ch] * 3) / 4;
+        servos[motor4_tim_ch] = ( servos[motor4_tim_ch] * 3) / 4;
+    }
 
     /*
      Mapping:
@@ -123,10 +126,20 @@ void halt_reset(void)
 //    servos[2] = 4000;
 //    servos[3] = 4000;
 
-    TIM2->CCR1 = 4000;
-    TIM2->CCR2 = 4000;
-    TIM2->CCR3 = 4000;
-    TIM2->CCR4 = 4000;
+    if ( esc_mode == ONES )
+    {
+        TIM2->CCR1 = 3000;
+        TIM2->CCR2 = 3000;
+        TIM2->CCR3 = 3000;
+        TIM2->CCR4 = 3000;
+    }
+    else
+    {
+        TIM2->CCR1 = 4000;
+        TIM2->CCR2 = 4000;
+        TIM2->CCR3 = 4000;
+        TIM2->CCR4 = 4000;
+    }
 
     last_derivative[x] = 0.0f;
     last_derivative[y] = 0.0f;

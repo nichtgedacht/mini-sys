@@ -8,7 +8,8 @@
 #include "usart.h"
 
 // for native middle position and -134% to +134%
-#define LOW_OFFS 3952
+//#define LOW_OFFS 3952
+#define LOW_OFFS 4000
 #define MIDDLE_POS 2048.0f
 
 extern volatile uint8_t uart_data[35];
