@@ -71,27 +71,19 @@ void control(int16_t thrust_set, int16_t roll_set, int16_t nick_set, int16_t gie
     // prevents motor stop, hopefully
     gier_set = gier_set < -400 ? -400 : (gier_set > 400 ? 400 : gier_set);
 
-    /* old original
-     servos[0] = thrust_set - roll_set - nick_set - gier_set;  // Motor rear left   CCW
-     servos[1] = thrust_set - roll_set + nick_set + gier_set;  // Motor front left  CW
-     servos[2] = thrust_set + roll_set - nick_set + gier_set;  // Motor rear right  CW
-     servos[3] = thrust_set + roll_set + nick_set - gier_set;  // Motor front right CCW
-     */
-
     // change roll, nick, gier to x, y, z. We need 0, 1, 2 as fixed index
     servos[motor1_tim_ch] = thrust_set - roll_set - nick_set + gier_set * rot_dir[M1];  // Motor 1 rear left   CCW
     servos[motor2_tim_ch] = thrust_set - roll_set + nick_set + gier_set * rot_dir[M2];  // Motor 2 front left  CW
     servos[motor3_tim_ch] = thrust_set + roll_set - nick_set + gier_set * rot_dir[M3];  // Motor 3 rear right  CW
     servos[motor4_tim_ch] = thrust_set + roll_set + nick_set + gier_set * rot_dir[M4];  // Motor 4 front right CCW
 
-    // It is essential that these statements are completed within the current period before
-    // the values are taken by HAL_TIM_PWM_PulseFinishedCallback (in servo.c).
-    // That is < 1ms since PeriodElapsed flag was set.
+    // Limit min and max values
     servos[motor1_tim_ch] = servos[motor1_tim_ch] < 4000 ? 4000 : (servos[motor1_tim_ch] > 8000 ? 8000 : servos[motor1_tim_ch]);
     servos[motor2_tim_ch] = servos[motor2_tim_ch] < 4000 ? 4000 : (servos[motor2_tim_ch] > 8000 ? 8000 : servos[motor2_tim_ch]);
     servos[motor3_tim_ch] = servos[motor3_tim_ch] < 4000 ? 4000 : (servos[motor3_tim_ch] > 8000 ? 8000 : servos[motor3_tim_ch]);
     servos[motor4_tim_ch] = servos[motor4_tim_ch] < 4000 ? 4000 : (servos[motor4_tim_ch] > 8000 ? 8000 : servos[motor4_tim_ch]);
 
+    // OneShot from 3000 to 6000
     if ( esc_mode == ONES )
     {
         servos[motor1_tim_ch] = ( servos[motor1_tim_ch] * 3) / 4;
@@ -99,24 +91,6 @@ void control(int16_t thrust_set, int16_t roll_set, int16_t nick_set, int16_t gie
         servos[motor3_tim_ch] = ( servos[motor3_tim_ch] * 3) / 4;
         servos[motor4_tim_ch] = ( servos[motor4_tim_ch] * 3) / 4;
     }
-
-    /*
-     Mapping:
-
-     normal:
-     #############################    thrust  roll-right  nick-down  gier-right
-     servos[0] Motor front left  CCW     +         +          -           +
-     servos[1] Motor front right CW      +         -          -           -
-     servos[2] Motor rear left   CW      +         +          +           +
-     servos[3] Motor rear right  CCW     +         -          +           -
-
-     connected:
-     servos[0] Motor rear left   CW
-     servos[2] Motor rear right  CCW
-     servos[1] Motor front right CW
-     servos[3] Motor front left  CCW
-     */
-
 }
 
 void halt_reset(void)

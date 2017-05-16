@@ -52,37 +52,7 @@ typedef struct
 
 typedef int8_t matrix[3][3];
 
-/*
-typedef struct {
-    uint8_t magic;
-    uint8_t pad1;
-    uint8_t pad2;
-    uint8_t pad3;
-    float pidvars[9];
-    float l_pidvars[9];
-    float rate[3];
-    motor motor_1;
-    motor motor_2;
-    motor motor_3;
-    motor motor_4;
-    matrix sensor_orient;
-    uint8_t pad4;
-    uint8_t pad5;
-    uint8_t pad6;
-    float aspect_ratio;
-    rc_channel rc_func[13];
-    uint8_t pad7;
-    rc_channel rc_ch[13];
-    uint8_t pad8;
-    uint8_t receiver;
-    uint8_t pad9;
-    uint8_t pad10;
-    uint8_t pad11;
-    float low_voltage;
-} settings;
-*/
-
-// new 8 bytes alignment
+// 8 bytes alignment
 typedef struct {
     uint8_t magic;
     uint8_t pad1[7];    // 1 + 7 = 8
