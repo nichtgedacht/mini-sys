@@ -123,7 +123,7 @@
 /**
   * @brief  LCD Data/Command Interface pins
   */
-#define LCD_DC_PIN                                 GPIO_PIN_7
+#define LCD_DC_PIN                                 GPIO_PIN_12
 #define LCD_DC_GPIO_PORT                           GPIOB
 #define LCD_DC_GPIO_CLK_ENABLE()                   __HAL_RCC_GPIOB_CLK_ENABLE()
 #define LCD_DC_GPIO_CLK_DISABLE()                  __HAL_RCC_GPIOB_CLK_DISABLE()

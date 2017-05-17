@@ -39,7 +39,7 @@ void    BSP_Get_MPU_Acc_Offset(int32_t* acc_offset);
 #define G_SI 9.80665
 
 // mpu9250 registers
-#define MPU_InitRegNum 18
+#define MPU_InitRegNum 19
 
 #define MPUREG_XG_OFFS_TC          0x00
 #define MPUREG_YG_OFFS_TC          0x01

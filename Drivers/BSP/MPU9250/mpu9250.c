@@ -48,8 +48,8 @@ uint8_t BSP_MPU_Init(uint8_t sample_rate_div, uint8_t GY_low_pass_filter, uint8_
         { 0x81, MPUREG_I2C_SLV0_CTRL },  //Enable I2C and set 1 byte
         { AK8963_CNTL1, MPUREG_I2C_SLV0_REG }, //I2C slave 0 register address from where to begin data transfer
         { 0x12, MPUREG_I2C_SLV0_DO }, // Register value to continuous measurement in 16bit
-        { 0x81, MPUREG_I2C_SLV0_CTRL }  //Enable I2C and set 1 byte
-
+        { 0x81, MPUREG_I2C_SLV0_CTRL },  //Enable I2C and set 1 byte
+        { 0x01, MPUREG_INT_ENABLE }  //Enables Data ready Signal on Int pin
     };
 
     /* Configure IO functionalities for MPU pin */
