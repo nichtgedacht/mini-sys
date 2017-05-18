@@ -411,6 +411,7 @@ void config_state_switch(const char *cmd)
 
 #ifdef HAVE_DISPLAY
         sprintf(buf, "Motor Test");
+        BSP_LCD_Clear(LCD_COLOR_BLACK);
         BSP_LCD_DisplayCLRStringAtLine(0, (uint8_t *) buf, CENTER_MODE, LCD_COLOR_RED);
 #endif
     }

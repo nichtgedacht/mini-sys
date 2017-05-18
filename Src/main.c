@@ -359,10 +359,18 @@ int main(void)
                 // scale thrust channel to have space for governor if max thrust is set
                 thrust_set = rintf((float) channels[rc_thrust] * 0.8f) + LOW_OFFS; // native middle position and 134 % are set, rc from 0 to 4095
 
-                // Period of OneShot Timer is synchronized
-                if ( esc_mode == ONES)
+                if (ServoPeriodElapsed == 1)
                 {
-                    average_counter = 0;
+                    ServoPeriodElapsed = 0;
+
+                    if (esc_mode == STD)  // average control values from n Periods of control calculation
+                    {
+                        roll_set /= average_counter; // average_counter is 3 almost always
+                        nick_set /= average_counter;
+                        gier_set /= average_counter;
+
+                        average_counter = 0;
+                    }
 
                     control(thrust_set, roll_set, nick_set, gier_set, esc_mode);
 
@@ -372,33 +380,10 @@ int main(void)
                     TIM2->CCR3 = servos[2];
                     TIM2->CCR4 = servos[3];
 
+                    // reset sum of control values
                     roll_set = 0;
                     nick_set = 0;
                     gier_set = 0;
-                }
-                // Period of normal PWM is set to 3ms
-                else if (esc_mode == STD)
-                {
-                    if ( average_counter >= 3)
-                    {
-                        average_counter = 0;
-
-                        roll_set /= 3;
-                        nick_set /= 3;
-                        gier_set /= 3;
-
-                        control(thrust_set, roll_set, nick_set, gier_set, esc_mode);
-
-                        // Preload is on. Values taken at next update event
-                        TIM2->CCR1 = servos[0];
-                        TIM2->CCR2 = servos[1];
-                        TIM2->CCR3 = servos[2];
-                        TIM2->CCR4 = servos[3];
-
-                        roll_set = 0;
-                        nick_set = 0;
-                        gier_set = 0;
-                    }
                 }
             }
             else // not armed or fail save or USB connected, motor stop except if motor test running
@@ -520,7 +505,7 @@ int main(void)
 
                     back_channels[rc_beep] = channels[rc_beep];
 
-                    if (snd_live == 0) // disable while live data send
+                    if (snd_live == 0 && rcv_motors == 0) // disable while live data send
                     {
                         if (channels[rc_mode] < L_TRSH)
                         {
