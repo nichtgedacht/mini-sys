@@ -290,7 +290,7 @@ int main(void)
         // reference probe
         //millis[0] = HAL_GetTick();
         //micros[0] = SysTick->VAL;
-        if (PeriodElapsed == 1) // 1.25 kHz from synchronized slave of servo timer, max 1.666... kHz is possible to get round this loop
+        if (PeriodElapsed == 1) // 1 kHz of Timer 4, update events (this flag) are synchronized from IMU Int trigger pin
         {
             PeriodElapsed = 0;
 
@@ -359,7 +359,7 @@ int main(void)
                 // scale thrust channel to have space for governor if max thrust is set
                 thrust_set = rintf((float) channels[rc_thrust] * 0.8f) + LOW_OFFS; // native middle position and 134 % are set, rc from 0 to 4095
 
-                if (ServoPeriodElapsed == 1)
+                if (ServoPeriodElapsed == 1) // In OneShot mode Update Events of timer2 (this Flag) is synchronized from timer 4
                 {
                     ServoPeriodElapsed = 0;
 
