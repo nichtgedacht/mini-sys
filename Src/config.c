@@ -336,12 +336,7 @@ void config_state_switch(const char *cmd)
     }
     else if (strcmp(cmd, "cal_acc") == 0)
     {
-        // Once calibrated one can not simply write 0 values to the
-        // cancellation registers to have the device like after a reboot.
-        // So reinitialize it here.
-        BSP_MPU_Init(0, 2, 2);
-        // Calibration of gyros gets lost after initialization, cosmetics
-        BSP_MPU_GyroCalibration();
+        // new calibration
         BSP_Get_MPU_Acc_Offset(p_settings->acc_offset);
         BSP_MPU_AccCalibration(p_settings->acc_offset);
 
@@ -397,6 +392,7 @@ void config_state_switch(const char *cmd)
         CDC_Reset_Receive();
 
 #ifdef HAVE_DISPLAY
+        BSP_LCD_Clear(LCD_COLOR_BLACK);
         sprintf(buf, "Configuration");
         BSP_LCD_DisplayCLRStringAtLine(0, (uint8_t *) buf, CENTER_MODE, LCD_COLOR_RED);
 #endif

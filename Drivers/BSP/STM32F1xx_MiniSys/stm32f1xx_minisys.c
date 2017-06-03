@@ -248,7 +248,7 @@ uint8_t MPU_IO_WriteReadReg(uint8_t MPUReg, uint8_t arg)
 
     uint8_t resp;
 
-    /* Reset LCD control line CS */
+    /* Reset IMU control line CS */
     MPU_CS_LOW();
 
     /* Send Command */

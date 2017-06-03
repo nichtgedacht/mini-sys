@@ -14,7 +14,6 @@ enum { x, y, z };
 extern float gy[3];
 extern float ac[3];
 extern float ang[3];
-
 extern float q0, q1, q2, q3;           // quaternion of sensor frame relative to auxiliary frame
 
 void    MPU_IO_Init(void);
@@ -33,10 +32,14 @@ void    BSP_MPU_read_acc();
 void    BSP_MPU_updateIMU(float ax, float ay, float az, float gx, float gy, float gz, float dt);
 void    BSP_MPU_getEuler(float* roll, float* pitch, float* yaw);
 void    BSP_MPU_GyroCalibration(void);
-void    BSP_MPU_AccCalibration(int32_t* acc_offset);
+void    BSP_MPU_AccCalibration(int32_t *acc_offset);
+uint8_t BSP_Acc_Collect_Error_cal(int32_t *acc_offset, uint8_t count);
 void    BSP_Get_MPU_Acc_Offset(int32_t* acc_offset);
+void    BSP_Revert_Acc_Cancel();
 
 #define G_SI 9.80665
+
+#define ACC_ERR_COLLECT_COUNT 200
 
 // mpu9250 registers
 #define MPU_InitRegNum 19

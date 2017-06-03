@@ -50,7 +50,7 @@ void HAL_UART_RxCpltCallback_SRXL(UART_HandleTypeDef *huart)
     // uint16_t checksum;
     // uint16_t crc = 0;
 
-    if (uart_data[0] == 0xA2)   // minimum check whether the start of frame was catched
+    if ( uart_data[0] == 0xA2)    // minimum check not really safe until sync
     {
 
         /* Its a pity but checksum calculation is to slow
@@ -138,7 +138,7 @@ void HAL_UART_RxCpltCallback_SBUS(UART_HandleTypeDef *huart)
 {
     uint16_t i;
 
-    if (uart_data[0] == 0x0F && uart_data[24] == 0x00)
+    if (uart_data[0] == 0x0F && uart_data[24] == 0x00)  // minimum check not quiet safe until sync
     {
         // stolen from https://github.com/zendes/SBUS
         channels[0] = (((uart_data[1] | uart_data[2] << 8) & 0x07FF) << 1);

@@ -85,10 +85,8 @@ DIR directory;
 FATFS SD_FatFs; /* File system object for SD card logical drive */
 float volt1 = 0.0f;
 uint32_t free_ram;
-char buf[50] =
-{ 0 };
-char buf2[100] =
-{ 0 };
+char buf[50] = { 0 };
+char buf2[100] = { 0 };
 const uint8_t flash_top = 255;
 uint32_t free_flash;
 uint32_t tick, prev_tick, dt;
@@ -103,6 +101,7 @@ uint32_t micros[2];
 uint8_t low_volt = 0;
 uint8_t warning = 0;
 uint8_t average_counter = 0;
+uint8_t acc_cal_counter = 0;
 
 /* USER CODE END PV */
 
@@ -314,7 +313,7 @@ int main(void)
             BSP_MPU_getEuler(&ang[roll], &ang[nick], &ang[gier]);
 
             // armed only if arm switch on + not failsafe + not usb connected
-            //if (channels[rc_arm] > H_TRSH && failsafe_counter < 40) // use for test performance while usb connected
+            //if (channels[rc_arm] > H_TRSH && failsafe_counter < 40) // use for test performance (armed) while usb connected
             if (channels[rc_arm] > H_TRSH && failsafe_counter < 40 && hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED) // armed, flight mode
             {
                 armed = 1;
@@ -323,7 +322,7 @@ int main(void)
 
                 if (channels[rc_mode] < L_TRSH)
                 {
-                    // attitude hold mode (rate controlled)
+                    // attitude hold mode (acro, rate controlled only)
                     // full stick equals 250 degrees per second with rate[x] of 8.192 (2048 / 250)
                     // gy range goes from 0 to +-1000 [DPS]
                     diff_roll_rate = gy[se_roll] * se_roll_sign * rate[se_roll] - (float) channels[rc_roll] + MIDDLE_POS; // native middle positions
@@ -505,7 +504,8 @@ int main(void)
 
                     back_channels[rc_beep] = channels[rc_beep];
 
-                    if (snd_live == 0 && rcv_motors == 0) // disable while live data send
+                    // do not disturb data flows
+                    if (snd_live == 0 && rcv_motors == 0 && snd_channels == 0 && rcv_settings == 0 && snd_settings == 0)
                     {
                         if (channels[rc_mode] < L_TRSH)
                         {
@@ -619,12 +619,14 @@ int main(void)
 
             if (counter == 4)  // Warning Slot
             {
+
                 if (led_blink_counter++ > 10)
                 {
                     led_blink_counter = 0;
                 }
 
                 if ((low_volt == 1 || channels[rc_beep] > L_TRSH) && hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED)
+                //if ((low_volt == 1 || channels[rc_beep] > L_TRSH)) // for testing armed while USB connected
                 {
                     // beep
                     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
@@ -644,8 +646,7 @@ int main(void)
                         led_trans_vals();
 
                         // reset warning state after blink period finished if warning condition vanished
-                        if ((low_volt == 0 && channels[rc_beep] < H_TRSH)
-                                || hUsbDeviceFS.dev_state == USBD_STATE_CONFIGURED)
+                        if ((low_volt == 0 && channels[rc_beep] < H_TRSH) || hUsbDeviceFS.dev_state == USBD_STATE_CONFIGURED)
                         {
                             // unbeep
                             HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
@@ -665,9 +666,34 @@ int main(void)
                 // GPS
             }
 
-            if (counter == 1)
+            if (counter == 1) // cal acc while flying acro slot
             {
-                // some else
+                if ( armed && channels[rc_thrust] > L_TRSH && channels[rc_mode] < L_TRSH) // device is flying, acro mode
+                {
+                    // collect errors if counter is running (1.6 s)
+                    if ( acc_cal_counter > 0 )
+                    {
+                        acc_cal_counter--;
+
+                        if ( BSP_Acc_Collect_Error_cal(p_settings->acc_offset, acc_cal_counter) == 0 )
+                        {
+                            // 57 ms no control
+                            erase_flash_page();
+                            write_flash_vars((uint32_t*) flash_buf, 256, 0);
+                        }
+                    }
+                    else
+                    {
+                        // detect transition to beep if counter not running
+                        // prepare ACC error collecting
+                        if (channels[rc_beep] - back_channels[rc_beep] > TRANS_OFFS)
+                        {
+                            acc_cal_counter = ACC_ERR_COLLECT_COUNT;
+                            BSP_Revert_Acc_Cancel();
+                            back_channels[rc_beep] = 2000; // restore default
+                        }
+                    }
+                }
             }
 
             // For visualization by Processing Software
